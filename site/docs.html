@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dokumentasi · Lawang</title>
+  <meta name="description" content="Dokumentasi teknis Lawang: arsitektur, tech stack, endpoint, cara menjalankan, keamanan, troubleshooting." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,30..100,0..1;1,9..144,300..700,30..100,0..1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="frame topbar-inner">
+    <a href="index.html" class="brand">
+      <span class="dot" aria-hidden="true"></span>
+      <span>Lawang</span>
+    </a>
+    <nav>
+      <a href="index.html#why" title="Why"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/></svg>Why</a>
+      <a href="index.html#how" title="How"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>How</a>
+      <a href="index.html#stack" title="Stack"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/><path d="m3 18 9 5 9-5"/></svg>Stack</a>
+      <a href="index.html#start" title="Start"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v16l13-8L6 4Z"/></svg>Start</a>
+      <a href="api.html" title="API"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4 3 12l5 8"/><path d="m16 4 5 8-5 8"/><path d="m14 4-4 16"/></svg>API</a>
+      <a href="docs.html" data-active="true" title="Docs"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"/><path d="M14 4v5h5"/><path d="M8 13h8M8 17h6"/></svg>Docs</a>
+    </nav>
+  </div>
+</header>
+
+<main class="frame">
+
+  <section style="padding: clamp(40px, 6vw, 72px) 0 24px; border-bottom: 1px solid var(--rule);">
+    <div class="eyebrow">Manual · v0.1.0 · Maintained on host</div>
+    <h1 style="font-size: clamp(40px, 7vw, 96px); margin-top: 14px;">
+      Dokumentasi <span class="ital" style="color: var(--accent); font-style: italic;">Teknis</span>.
+    </h1>
+    <p style="font-size: clamp(17px, 1.4vw, 20px); max-width: 56ch; color: var(--ink-soft); margin-top: 18px;">
+      Arsitektur, alur, endpoint, dan cara menjalankan project. Disusun untuk
+      kontributor baru — dibaca berurutan atau loncat lewat daftar isi di sebelah.
+    </p>
+  </section>
+
+  <div class="docs">
+    <aside>
+      <div class="label">DAFTAR ISI</div>
+      <ol>
+        <li><a href="#s1">Apa itu Lawang</a></li>
+        <li><a href="#s2">Tech stack</a></li>
+        <li><a href="#s3">Struktur repo</a></li>
+        <li><a href="#s4">Arsitektur &amp; alur</a></li>
+        <li><a href="#s5">Endpoint ringkas</a></li>
+        <li><a href="#s6">Cara menjalankan</a></li>
+        <li><a href="#s7">Akses dari mana saja</a></li>
+        <li><a href="#s8">Konfigurasi tambahan</a></li>
+        <li><a href="#s9">Keamanan</a></li>
+        <li><a href="#s10">Troubleshooting</a></li>
+        <li><a href="#s11">Service install</a></li>
+        <li><a href="#s12">Quick start</a></li>
+      </ol>
+    </aside>
+
+    <article>
+
+      <!-- §01 -->
+      <h2 id="s1"><span class="num">01</span>Apa itu Lawang</h2>
+      <p>
+        Lawang adalah <em>local-first remote terminal</em> untuk mesin sendiri.
+        Host menjalankan satu perintah CLI, lalu device lain (HP, tablet, laptop)
+        bisa scan QR code untuk mendapat akses terminal di browser. Setiap pairing
+        harus di-approve secara eksplisit oleh host.
+      </p>
+      <p>Cocok untuk:</p>
+      <ul>
+        <li>Membuka terminal Mac/Linux dari HP saat lagi di luar.</li>
+        <li>Cek file dan git status dari device kedua.</li>
+        <li>Coding ringan dengan Monaco editor langsung di browser.</li>
+      </ul>
+
+      <h3>Fitur MVP yang sudah jalan</h3>
+      <ul>
+        <li>CLI agent yang menyalakan HTTP + WebSocket server lokal.</li>
+        <li>Pairing one-time via QR + approval di CLI host.</li>
+        <li>Terminal berbasis xterm.js dengan shortcut bar untuk mobile.</li>
+        <li>File explorer + Monaco editor (read/write, upload, rename, delete, mkdir).</li>
+        <li>Git panel (status, diff, log, stage, commit, pull, push).</li>
+        <li>Tab Chat: ketik command satu per satu, tiap perintah jadi bubble dengan output yang dirapikan (JSON, diff, exit code).</li>
+        <li>Tunnel opsional via <code>cloudflared</code> (auto-detect).</li>
+        <li>Trusted devices (auto-approve) dan audit log lokal.</li>
+        <li>Control socket lokal untuk operasi admin di luar HTTP.</li>
+      </ul>
+
+      <!-- §02 -->
+      <h2 id="s2"><span class="num">02</span>Tech stack</h2>
+
+      <h3>Repo &amp; runtime</h3>
+      <ul>
+        <li>npm workspaces monorepo (<code>packages/*</code>).</li>
+        <li>Node.js <code>&gt;= 18.17</code>.</li>
+        <li>TypeScript <code>5.5.4</code> di kedua package.</li>
+      </ul>
+
+      <h3>Agent (packages/agent)</h3>
+      <ul>
+        <li><code>fastify@4</code> — HTTP server.</li>
+        <li><code>@fastify/static</code> — serve build web.</li>
+        <li><code>@fastify/websocket</code> + <code>ws@8</code> — WS terminal.</li>
+        <li><code>node-pty@1</code> — PTY shell (bash/zsh/powershell).</li>
+        <li><code>commander@12</code> — CLI parsing.</li>
+        <li><code>qrcode</code> + <code>qrcode-terminal</code> — render QR.</li>
+        <li><code>simple-git</code> — operasi git.</li>
+        <li><code>zod</code> — validasi body request.</li>
+        <li><code>tsx</code> dev / <code>tsc</code> build.</li>
+      </ul>
+
+      <h3>Web (packages/web)</h3>
+      <ul>
+        <li>React <code>18.3</code> + Vite <code>5.4</code>.</li>
+        <li>Tailwind CSS <code>3.4</code> dengan tema dark custom.</li>
+        <li><code>@xterm/xterm</code> + addon <code>fit</code> &amp; <code>web-links</code>.</li>
+        <li><code>@monaco-editor/react</code> + <code>monaco-editor</code>.</li>
+        <li><code>lucide-react</code> untuk ikon.</li>
+        <li>Hash router custom di <code>packages/web/src/lib/router.ts</code>.</li>
+      </ul>
+
+      <!-- §03 -->
+      <h2 id="s3"><span class="num">03</span>Struktur repo</h2>
+      <pre><code>remoteapp/
+├── package.json              # workspaces + skrip top-level
+├── README.md
+├── prd_remote_access_app.md  # PRD lengkap
+├── scripts/copy-web.js       # copy dist web → agent/public
+└── packages/
+    ├── agent/                # Node CLI + Fastify server (TS)
+    │   └── src/
+    │       ├── cli.ts        # entry CLI: start &amp; devices
+    │       ├── server.ts     # Fastify + REST + WS terminal
+    │       └── lib/
+    │           ├── audit.ts          # JSONL audit log
+    │           ├── banner.ts         # banner + QR ANSI
+    │           ├── config.ts         # ~/.lawang/config.json
+    │           ├── controlSocket.ts  # unix sock admin
+    │           ├── git.ts            # simple-git wrapper
+    │           ├── network.ts        # deteksi IP LAN
+    │           ├── pairing.ts        # token + queue
+    │           ├── promptApprover.ts # prompt y/N
+    │           ├── rateLimit.ts
+    │           ├── sandbox.ts        # path traversal guard
+    │           ├── sessions.ts       # session store
+    │           ├── terminal.ts       # spawn node-pty
+    │           ├── tokens.ts         # hashing helpers
+    │           ├── trustedDevices.ts
+    │           └── tunnel.ts         # cloudflared
+    └── web/                  # React + xterm.js client
+        └── src/
+            ├── App.tsx
+            ├── lib/{api,device,router}.ts
+            ├── pages/{Home,Pair,Session}.tsx
+            └── components/
+                ├── TerminalPanel.tsx
+                ├── FilesPanel.tsx
+                ├── CodeEditor.tsx
+                └── GitPanel.tsx</code></pre>
+
+      <div class="callout">
+        <strong>Runtime data</strong> disimpan di <code>~/.lawang/</code>:
+        <code>config.json</code>, <code>audit.log</code>, dan
+        <code>agent.sock</code> (Unix) atau <code>agent.port</code> (Windows).
+        Semuanya pakai mode <code>0o600</code>.
+      </div>
+
+      <!-- §04 -->
+      <h2 id="s4"><span class="num">04</span>Arsitektur &amp; alur</h2>
+
+      <h3>Komponen runtime</h3>
+      <figure class="diagram" data-fig="Fig. 01 — Topology">
+        <svg viewBox="0 0 880 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram topologi: host menjalankan agent, remote device pakai browser.">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#14110d"/>
+            </marker>
+            <pattern id="hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="6" stroke="#14110d" stroke-width="0.4" opacity="0.18"/>
+            </pattern>
+          </defs>
+
+          <!-- HOST card -->
+          <g transform="translate(20,30)">
+            <rect width="380" height="300" fill="none" stroke="#14110d" stroke-width="1"/>
+            <rect x="0" y="0" width="380" height="22" fill="#14110d"/>
+            <text x="12" y="15" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#efe9d9"># HOST MACHINE</text>
+
+            <!-- Fastify block -->
+            <rect x="20" y="46" width="340" height="64" fill="url(#hatch)" stroke="#14110d"/>
+            <text x="32" y="68" font-family="Fraunces, serif" font-style="italic" font-size="18" fill="#14110d">Fastify HTTP</text>
+            <text x="32" y="86" font-family="JetBrains Mono, monospace" font-size="11" fill="#4a4338">:3999  ·  /api/*  ·  /qr  ·  /health</text>
+            <text x="32" y="102" font-family="JetBrains Mono, monospace" font-size="11" fill="#4a4338">/api/pair/request  ·  /api/files  ·  /api/git</text>
+
+            <!-- WS block -->
+            <rect x="20" y="124" width="160" height="60" fill="#0b0d10" stroke="#0b0d10"/>
+            <text x="32" y="146" font-family="Fraunces, serif" font-style="italic" font-size="16" fill="#efe9d9">WebSocket</text>
+            <text x="32" y="164" font-family="JetBrains Mono, monospace" font-size="11" fill="#8b949e">/ws/terminal</text>
+            <text x="32" y="178" font-family="JetBrains Mono, monospace" font-size="11" fill="#ffb86c">↔ node-pty</text>
+
+            <!-- Control socket -->
+            <rect x="200" y="124" width="160" height="60" fill="none" stroke="#14110d"/>
+            <text x="212" y="146" font-family="Fraunces, serif" font-style="italic" font-size="16" fill="#14110d">Control sock</text>
+            <text x="212" y="164" font-family="JetBrains Mono, monospace" font-size="11" fill="#4a4338">~/.lawang/</text>
+            <text x="212" y="178" font-family="JetBrains Mono, monospace" font-size="11" fill="#4a4338">agent.sock</text>
+
+            <!-- node-pty + cloudflared -->
+            <rect x="20" y="200" width="340" height="36" fill="none" stroke="#14110d" stroke-dasharray="2 3"/>
+            <text x="32" y="223" font-family="JetBrains Mono, monospace" font-size="11" fill="#4a4338">node-pty (bash · zsh · pwsh)   ·   cloudflared (opsional)</text>
+
+            <!-- audit -->
+            <rect x="20" y="248" width="340" height="36" fill="none" stroke="#14110d"/>
+            <text x="32" y="271" font-family="JetBrains Mono, monospace" font-size="11" fill="#c44d2e">audit.log  ·  config.json   (mode 0o600)</text>
+          </g>
+
+          <!-- arrows -->
+          <g font-family="JetBrains Mono, monospace" font-size="10" fill="#4a4338">
+            <line x1="400" y1="100" x2="500" y2="100" stroke="#14110d" stroke-width="1.4" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+            <text x="408" y="92">HTTP / HTTPS</text>
+            <line x1="400" y1="170" x2="500" y2="170" stroke="#c44d2e" stroke-width="1.6" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+            <text x="408" y="162" fill="#c44d2e">WebSocket</text>
+          </g>
+
+          <!-- DEVICE card -->
+          <g transform="translate(500,30)">
+            <rect width="360" height="300" fill="none" stroke="#14110d" stroke-width="1"/>
+            <rect x="0" y="0" width="360" height="22" fill="#c44d2e"/>
+            <text x="12" y="15" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#efe9d9"># REMOTE DEVICE</text>
+
+            <text x="20" y="60" font-family="Fraunces, serif" font-style="italic" font-size="22" fill="#14110d">Browser</text>
+            <text x="20" y="82" font-family="JetBrains Mono, monospace" font-size="11" fill="#4a4338">React + Vite · hash router</text>
+
+            <rect x="20" y="100" width="320" height="40" fill="#efe9d9" stroke="#14110d"/>
+            <text x="32" y="125" font-family="JetBrains Mono, monospace" font-size="12" fill="#14110d">/#/pair?token=…</text>
+
+            <rect x="20" y="150" width="320" height="40" fill="#efe9d9" stroke="#14110d"/>
+            <text x="32" y="175" font-family="JetBrains Mono, monospace" font-size="12" fill="#14110d">/#/terminal   ·   xterm.js</text>
+
+            <rect x="20" y="200" width="320" height="40" fill="#efe9d9" stroke="#14110d"/>
+            <text x="32" y="225" font-family="JetBrains Mono, monospace" font-size="12" fill="#14110d">/#/files   ·   /#/git</text>
+
+            <text x="20" y="266" font-family="JetBrains Mono, monospace" font-size="11" fill="#4a4338">device fingerprint → localStorage</text>
+            <text x="20" y="282" font-family="JetBrains Mono, monospace" font-size="11" fill="#4a4338">session token → sessionStorage</text>
+          </g>
+        </svg>
+        <div class="cap">Fig. 01 · Agent dan client komunikasi lewat dua kanal: HTTP untuk REST, WebSocket terpisah untuk PTY stream.</div>
+      </figure>
+
+      <ul>
+        <li>Fastify mengikat <code>0.0.0.0:&lt;port&gt;</code> (default <code>3999</code>).</li>
+        <li>Web di-serve sebagai static asset dari <code>packages/agent/public</code>.</li>
+        <li>Tunnel <code>cloudflared</code> dipakai sebagai public origin kalau binary tersedia.</li>
+        <li>Audit &amp; config di <code>~/.lawang</code> dengan permission <code>0o600</code>.</li>
+      </ul>
+
+      <h3>Alur pairing</h3>
+      <figure class="diagram" data-fig="Fig. 02 — Handshake">
+        <svg viewBox="0 0 880 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram alur pairing tujuh langkah dari CLI ke shell.">
+          <defs>
+            <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#14110d"/>
+            </marker>
+          </defs>
+          <!-- baseline -->
+          <line x1="40" y1="120" x2="840" y2="120" stroke="#14110d" stroke-width="1"/>
+          <!-- 7 stops -->
+          <g font-family="JetBrains Mono, monospace" font-size="10" fill="#14110d">
+            <g transform="translate(40,120)">
+              <circle r="6" fill="#c44d2e"/>
+              <text y="-16" font-family="Fraunces, serif" font-style="italic" font-size="14">01</text>
+              <text y="32" font-size="10" fill="#4a4338">npm start</text>
+              <text y="46" font-size="10" fill="#4a4338">QR + token</text>
+            </g>
+            <g transform="translate(173,120)">
+              <circle r="6" fill="#14110d"/>
+              <text y="-16" font-family="Fraunces, serif" font-style="italic" font-size="14">02</text>
+              <text y="32" font-size="10" fill="#4a4338">device scan</text>
+              <text y="46" font-size="10" fill="#4a4338">/#/pair</text>
+            </g>
+            <g transform="translate(306,120)">
+              <circle r="6" fill="#14110d"/>
+              <text y="-16" font-family="Fraunces, serif" font-style="italic" font-size="14">03</text>
+              <text y="32" font-size="10" fill="#4a4338">POST /api/</text>
+              <text y="46" font-size="10" fill="#4a4338">pair/request</text>
+            </g>
+            <g transform="translate(440,120)">
+              <circle r="9" fill="#c44d2e" stroke="#14110d" stroke-width="2"/>
+              <text y="-20" font-family="Fraunces, serif" font-style="italic" font-size="16" fill="#c44d2e">04</text>
+              <text y="32" font-size="10" fill="#4a4338">host approval</text>
+              <text y="46" font-size="10" fill="#4a4338">y / N</text>
+            </g>
+            <g transform="translate(573,120)">
+              <circle r="6" fill="#14110d"/>
+              <text y="-16" font-family="Fraunces, serif" font-style="italic" font-size="14">05</text>
+              <text y="32" font-size="10" fill="#4a4338">session token</text>
+              <text y="46" font-size="10" fill="#4a4338">issued</text>
+            </g>
+            <g transform="translate(706,120)">
+              <circle r="6" fill="#14110d"/>
+              <text y="-16" font-family="Fraunces, serif" font-style="italic" font-size="14">06</text>
+              <text y="32" font-size="10" fill="#4a4338">/#/terminal</text>
+              <text y="46" font-size="10" fill="#4a4338">redirect</text>
+            </g>
+            <g transform="translate(840,120)">
+              <circle r="6" fill="#0b0d10"/>
+              <text y="-16" font-family="Fraunces, serif" font-style="italic" font-size="14" text-anchor="end">07</text>
+              <text y="32" font-size="10" fill="#4a4338" text-anchor="end">WS /ws/terminal</text>
+              <text y="46" font-size="10" fill="#4a4338" text-anchor="end">PTY stream</text>
+            </g>
+          </g>
+
+          <!-- swimlanes labels -->
+          <text x="40" y="32" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#c44d2e">CLI HOST</text>
+          <text x="306" y="32" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#14110d">DEVICE</text>
+          <text x="573" y="32" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#14110d">SERVER → CLIENT</text>
+
+          <!-- divider tick marks above lane labels -->
+          <line x1="280" y1="20" x2="280" y2="200" stroke="#14110d" stroke-dasharray="2 4" opacity="0.3"/>
+          <line x1="540" y1="20" x2="540" y2="200" stroke="#14110d" stroke-dasharray="2 4" opacity="0.3"/>
+        </svg>
+        <div class="cap">Fig. 02 · Handshake satu arah: token di-consume di langkah 04, session token bertahan sampai idle timeout.</div>
+      </figure>
+      <ol>
+        <li>Host jalan <code>lawang start</code>.</li>
+        <li>CLI generate pairing token (24-byte base64url, TTL 15 menit) dan render QR + URL pair (<code>&lt;base&gt;/#/pair?token=…</code>).</li>
+        <li>Device buka URL → <code>Pair.tsx</code> POST <code>/api/pair/request</code> dengan token, device name, type, dan fingerprint (random per device, di <code>localStorage</code>).</li>
+        <li>Server validasi token (<code>PairingManager.validateRawToken</code>) dan cek trusted device. Cocok → auto-approve. Tidak → masuk antrean prompt host.</li>
+        <li>Approved → token consume (one-time), session token (32-byte random, hash di memori) terbit dengan permission <code>terminal, file:read, file:write, git:read, git:write</code>.</li>
+        <li>Client simpan session token di <code>sessionStorage</code>, navigate ke <code>/#/terminal</code>.</li>
+        <li>Client buka WS <code>/ws/terminal?token=…</code>. Server validasi, spawn PTY, stream <code>terminal:output</code> / <code>terminal:input</code>.</li>
+      </ol>
+
+      <h3>Sesi &amp; idle timeout</h3>
+      <ul>
+        <li><code>SessionStore</code> in-memory, idle timeout default 30 menit, sweeper tiap 60 detik.</li>
+        <li>Setiap REST/WS valid memanggil <code>touch(sessionId)</code>.</li>
+        <li>Sesi bisa direvoke via control socket (<code>sessions</code>, <code>revoke</code>, <code>revoke-all</code>).</li>
+        <li>Saat <code>SIGINT</code>/<code>SIGTERM</code>, semua sesi di-revoke dan tunnel dihentikan.</li>
+      </ul>
+
+      <h3>Sandbox file &amp; git</h3>
+      <ul>
+        <li>Semua endpoint file/git lewat <code>resolveInside(root, relative)</code>.</li>
+        <li>File preview maks 1 MB; upload streaming dengan body limit 16 MB.</li>
+        <li>Rate limit per-IP: pairing 20/menit, file read 240/menit, file write 60/menit.</li>
+      </ul>
+
+      <h3>Audit log</h3>
+      <p>
+        File <code>~/.lawang/audit.log</code> append-only JSONL. Event antara
+        lain <code>agent_started</code>, <code>pairing_requested</code>,
+        <code>pairing_approved</code>, <code>session_started</code>,
+        <code>session_revoked</code>, <code>file_written</code>,
+        <code>git_commit</code>, <code>git_push</code>. Lihat
+        <code>AuditEventType</code> di <code>packages/agent/src/lib/audit.ts</code>.
+      </p>
+
+      <!-- §05 -->
+      <h2 id="s5"><span class="num">05</span>Endpoint ringkas</h2>
+      <p>
+        Semua endpoint kecuali yang ditandai publik membutuhkan header
+        <code>Authorization: Bearer &lt;sessionToken&gt;</code>.
+      </p>
+
+      <h3>Publik</h3>
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Keterangan</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td>/health</td><td>Health probe</td></tr>
+          <tr><td>GET</td><td>/api/info</td><td>Machine name, version, tunnel URL</td></tr>
+          <tr><td>GET</td><td>/qr · /qr.svg</td><td>Halaman &amp; SVG QR pairing</td></tr>
+          <tr><td>POST</td><td>/api/pair/request</td><td>Request pairing (rate limited)</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Environment</h3>
+      <p>
+        <code>GET /api/env</code> — info host: machine, runtime Node, shell,
+        plus ringkasan project (name, version, package manager, lockfile,
+        git repo, workspaces).
+      </p>
+
+      <h3>Session history</h3>
+      <p>
+        <code>GET /api/sessions/history?limit=&lt;n&gt;</code> — sesi yang
+        sudah lewat dari audit log. Cocok untuk render daftar sesi di UI tanpa
+        perlu menunggu agent restart.
+      </p>
+
+      <h3>File API</h3>
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Keterangan</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td>/api/files?path=&lt;rel&gt;</td><td>List direktori</td></tr>
+          <tr><td>GET</td><td>/api/file?path=&lt;rel&gt;</td><td>Baca file (auto text/binary)</td></tr>
+          <tr><td>GET</td><td>/api/file/download</td><td>Download stream</td></tr>
+          <tr><td>PUT</td><td>/api/file</td><td>Tulis ulang file</td></tr>
+          <tr><td>POST</td><td>/api/file/upload</td><td>Upload streaming octet-stream</td></tr>
+          <tr><td>POST</td><td>/api/dir</td><td><code>mkdir -p</code></td></tr>
+          <tr><td>POST</td><td>/api/file/rename</td><td>Pindah file/folder</td></tr>
+          <tr><td>DELETE</td><td>/api/file</td><td>Hapus file/folder</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Git API</h3>
+      <table>
+        <thead><tr><th>Method</th><th>Path</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td>/api/git/status · /api/git/diff · /api/git/log</td></tr>
+          <tr><td>POST</td><td>/api/git/stage · /api/git/unstage</td></tr>
+          <tr><td>POST</td><td>/api/git/commit · /api/git/pull · /api/git/push</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Chat (one-shot exec)</h3>
+      <p>
+        <code>POST /api/exec</code> — jalankan command sekali (bukan PTY).
+        Body <code>{ command, cwd, timeoutMs }</code>. Output combined dibatasi
+        256 KB, default timeout 15 detik. Cocok untuk tab Chat di UI; bukan
+        pengganti tab Terminal untuk command interaktif.
+      </p>
+
+      <h3>Host power</h3>
+      <p>
+        <code>GET /api/system/power</code> — kapabilitas. <code>POST
+        /api/system/power</code> dengan <code>{ action, confirm: true,
+        delaySeconds }</code> men-trigger <code>sleep</code> /
+        <code>shutdown</code> / <code>reboot</code> / <code>lock</code> di host.
+        macOS pakai <code>pmset</code> &amp; <code>osascript</code>, Linux pakai
+        <code>systemctl</code> + <code>loginctl lock-session</code>. Tombol
+        <em>host</em> di header sesi membuka menu dengan modal konfirmasi
+        double-tap (kecuali lock yang langsung).
+      </p>
+
+      <h3>Battery</h3>
+      <p>
+        <code>GET /api/system/battery</code> — info baterai host: percent,
+        charging, AC connected, state, sisa waktu. Polling tiap menit di UI
+        untuk render badge di header sesi.
+      </p>
+
+      <h3>WebSocket</h3>
+      <p>
+        <code>GET /ws/terminal?token=&lt;sessionToken&gt;</code> — pesan JSON
+        <code>{ event, payload }</code> dengan event
+        <code>session:connected</code>, <code>terminal:output</code>,
+        <code>terminal:input</code>, <code>terminal:resize</code>,
+        <code>terminal:exit</code>, <code>session:disconnect</code>.
+      </p>
+
+      <!-- §06 -->
+      <h2 id="s6"><span class="num">06</span>Cara menjalankan</h2>
+
+      <h3>Prasyarat</h3>
+      <ul>
+        <li>Node.js <code>&gt;= 18.17</code>.</li>
+        <li>npm <code>&gt;= 9</code>.</li>
+        <li>
+          Toolchain native untuk <code>node-pty</code> — compiler C/C++ + <code>node-gyp</code>.
+          Detail kenapa wajib ada ada di <a href="#why-native-toolchain">Kenapa <code>node-pty</code> butuh compiler native</a>.
+          Ringkasnya:
+          <ul>
+            <li><strong>macOS</strong> — <code>xcode-select --install</code> (memasang <code>clang</code>, header sistem, <code>make</code>).</li>
+            <li><strong>Linux</strong> — <code>python3</code>, <code>make</code>, <code>g++</code> (Debian/Ubuntu: <code>apt install build-essential python3</code>).</li>
+            <li><strong>Windows</strong> — Visual Studio Build Tools 2022, workload <em>Desktop development with C++</em>, plus <code>python3</code>.</li>
+          </ul>
+        </li>
+        <li>Opsional: <code>cloudflared</code> di PATH untuk tunnel publik.</li>
+      </ul>
+
+      <h3 id="why-native-toolchain">Kenapa <code>node-pty</code> butuh compiler native</h3>
+      <p>
+        <code>node-pty</code> membungkus syscall <strong>pseudo-terminal</strong> milik OS — <code>forkpty</code>
+        di Unix, ConPTY/winpty di Windows. Karena fitur ini berasal dari kernel dan tidak bisa
+        diimplementasi pakai JavaScript murni, package-nya berbentuk <em>native addon</em>: source C/C++
+        yang harus dikompilasi jadi binary <code>.node</code> saat <code>npm install</code>.
+      </p>
+      <p>
+        Tanpa native PTY, terminal di browser tidak bisa benar-benar menjalankan <code>bash</code>/<code>zsh</code>
+        dengan ANSI color, resize via <code>SIGWINCH</code>, job control (<code>Ctrl+C</code>/<code>Ctrl+Z</code>),
+        prompt interaktif (<code>sudo</code>, <code>git push</code>), maupun TUI seperti <code>vim</code>/<code>htop</code>.
+        Semua itu butuh PTY asli, bukan sekadar <code>child_process</code>.
+      </p>
+      <p>Saat install, <code>node-gyp</code> dipanggil dan butuh tiga hal:</p>
+      <ul>
+        <li><strong>Compiler C/C++</strong> — meng-compile source <code>node-pty</code> ke binary asli platform.</li>
+        <li><strong><code>make</code></strong> — build runner yang dipakai <code>node-gyp</code>.</li>
+        <li><strong><code>python3</code></strong> — orchestrator <code>node-gyp</code> (bukan untuk runtime).</li>
+      </ul>
+      <p>
+        Hasilnya tersimpan di <code>node_modules/node-pty/build/Release/pty.node</code> dan di-cache.
+        Toolchain ini hanya disentuh sekali, kecuali kamu pindah versi Node mayor, upgrade OS yang
+        mengubah ABI, atau pindah arsitektur (Intel → Apple Silicon). Saat itu, hapus <code>node_modules</code>
+        lalu <code>npm install</code> ulang.
+      </p>
+      <p>Indikator gagal install yang sering ketemu:</p>
+      <ul>
+        <li><code>gyp ERR! find Python</code> → install <code>python3</code> lalu retry.</li>
+        <li><code>xcrun: error: invalid active developer path</code> → jalankan <code>xcode-select --install</code>.</li>
+        <li><code>error: Microsoft Visual C++ 14.0 or greater is required</code> → install Visual Studio Build Tools dengan workload C++.</li>
+      </ul>
+      <p>
+        Kalau ingin menghindari toolchain di server produksi yang minim, build dulu di mesin developer,
+        lalu copy <code>node_modules</code> atau pakai Docker multi-stage build.
+      </p>
+
+      <h3>Install dependency</h3>
+      <pre><code>cd ~/lawang
+npm install</code></pre>
+
+      <h3>Build production</h3>
+      <pre><code>npm run build
+# 1. npm run build -w lawang-web   → vite ke packages/web/dist
+# 2. npm run build -w lawang → tsc + scripts/copy-web.js</code></pre>
+
+      <h3>Start agent</h3>
+      <pre><code>npm start
+# setara: node packages/agent/dist/cli.js start</code></pre>
+      <p>
+        CLI akan mencetak <code>Local URL</code>, <code>LAN URL</code>,
+        <code>Tunnel URL</code> (kalau cloudflared ada), <code>Pair URL</code>
+        + token, dan QR di terminal. Buka
+        <code>&lt;localUrl&gt;/qr</code> untuk QR full screen di laptop.
+        Stop dengan <code>Ctrl+C</code>.
+      </p>
+
+      <h3>Mode development</h3>
+      <pre><code># Terminal 1 — Vite dev (proxy /api &amp; /ws ke localhost:3999)
+npm run dev:web
+
+# Terminal 2 — Agent dengan tsx watch
+npm run dev:agent</code></pre>
+
+      <h3>Opsi CLI</h3>
+      <ul>
+        <li><code>-p, --port &lt;port&gt;</code> — default <code>3999</code>.</li>
+        <li><code>-r, --root &lt;path&gt;</code> — default <code>process.cwd()</code>.</li>
+        <li><code>--no-tunnel</code> — matikan auto-start cloudflared.</li>
+        <li><code>--token-ttl &lt;menit&gt;</code> — default <code>15</code>.</li>
+        <li><code>--idle-timeout &lt;menit&gt;</code> — default <code>30</code>.</li>
+        <li><code>--qr-size &lt;small|large|off&gt;</code> — default <code>large</code>.</li>
+        <li><code>--keep-awake</code> — cegah host sleep selama agent jalan (caffeinate / systemd-inhibit).</li>
+      </ul>
+
+      <h3>Subcommand devices</h3>
+      <pre><code>lawang devices                 # list trusted devices
+lawang devices --revoke 1a2b3c # revoke by id / prefix
+lawang devices --revoke-all    # revoke semua
+lawang devices --json          # output JSON</code></pre>
+
+      <h3>Subcommand sessions / ping</h3>
+      <p>Butuh agent yang sedang jalan (lewat control socket).</p>
+      <pre><code>lawang sessions                # list sesi aktif
+lawang sessions --revoke ad7e  # revoke sesi by prefix
+lawang sessions --revoke-all   # revoke semua sesi aktif
+lawang ping                    # cek agent up</code></pre>
+
+      <h3>Subcommand history</h3>
+      <p>Offline. Baca <code>~/.lawang/audit.log</code> dan rekonstruksi sesi yang lewat.</p>
+      <pre><code>lawang history                 # 25 sesi terakhir
+lawang history --limit 100     # batasi jumlah
+lawang history --json          # output JSON</code></pre>
+
+      <h3>Subcommand rotate</h3>
+      <p>Generate pairing token baru di agent yang sedang jalan, tanpa restart.
+      Halaman <code>/qr</code> auto-refresh QR-nya tiap 5 detik, jadi tinggal
+      scan ulang dari HP. Sesi aktif dan trusted device tidak terganggu.</p>
+      <pre><code>lawang rotate                  # token baru, banner di-print ulang
+lawang rotate --json           # output JSON (pairUrl, token, expiresAt)</code></pre>
+
+      <h3>Subcommand verify</h3>
+      <p>Smoke-test hard rules dari PRD § 17 / 18.3 terhadap agent yang sedang
+      jalan: control ping, <code>/health</code>, no unauthenticated access,
+      path traversal guard, push confirmation, dan WS Origin check.
+      Exit 0 kalau semua lulus, 1 kalau ada yang fail.</p>
+      <pre><code>lawang verify                  # 6 checks
+lawang verify --base http://localhost:4100
+lawang verify --json           # CI-friendly output</code></pre>
+
+      <h3>Lokasi data runtime</h3>
+      <ul>
+        <li><code>~/.lawang/config.json</code> — machine id, trusted devices, settings.</li>
+        <li><code>~/.lawang/audit.log</code> — audit JSONL.</li>
+        <li><code>~/.lawang/agent.sock</code> (Unix) atau <code>agent.port</code> (Windows).</li>
+      </ul>
+
+      <!-- §07 -->
+      <h2 id="s7"><span class="num">07</span>Akses dari mana saja (Cloudflared)</h2>
+      <p>Section ini buat user yang baru install Lawang dan mau akses dari HP saat di luar Wi-Fi rumah. Kalau cukup di Wi-Fi yang sama, lewati saja.</p>
+
+      <h3>Tiga skenario, tiga jawaban</h3>
+      <ul>
+        <li><strong>HP &amp; laptop di Wi-Fi sama</strong> → tidak perlu apa-apa. <code>lawang start --no-tunnel</code>, scan QR.</li>
+        <li><strong>HP di 4G / kafe lain</strong> → install <code>cloudflared</code> di laptop, lalu <code>lawang start</code>. URL random publik otomatis muncul di banner.</li>
+        <li><strong>Mau URL tetap</strong> (mis. <code>lawang.namadomain.com</code>) → butuh akun Cloudflare + domain. Lihat sub-section "URL stabil" di bawah.</li>
+      </ul>
+
+      <h3>Install cloudflared</h3>
+      <p>Cloudflared dipasang di laptop user yang menjalankan Lawang, bukan di server developer. HP user tidak perlu cloudflared sama sekali.</p>
+
+      <h4>macOS</h4>
+      <pre><code>brew install cloudflared</code></pre>
+
+      <h4>Linux Debian / Ubuntu</h4>
+      <pre><code>curl -L --output cloudflared.deb \
+  https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared.deb</code></pre>
+
+      <h4>Linux Fedora / RHEL</h4>
+      <pre><code>curl -L --output cloudflared.rpm \
+  https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-x86_64.rpm
+sudo rpm -i cloudflared.rpm</code></pre>
+
+      <h4>Linux generic</h4>
+      <pre><code>curl -L --output cloudflared \
+  https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+chmod +x cloudflared
+sudo mv cloudflared /usr/local/bin/</code></pre>
+
+      <h4>Windows</h4>
+      <pre><code>winget install --id Cloudflare.cloudflared
+# atau:
+scoop install cloudflared</code></pre>
+
+      <p>Verifikasi: <code>cloudflared --version</code> dan <code>which cloudflared</code> (atau <code>where</code> di Windows).</p>
+
+      <h3>Tutorial end-to-end (skenario paling sering dipakai)</h3>
+      <p>Laptop di rumah, HP di luar (4G atau Wi-Fi lain).</p>
+      <ol>
+        <li>Pasang cloudflared (lihat di atas).</li>
+        <li><code>lawang start --keep-awake</code> — flag keep-awake mencegah laptop sleep selama agent jalan.</li>
+        <li>Banner CLI cetak <code>Tunnel URL: https://soft-fern.trycloudflare.com</code> dan QR.</li>
+        <li>Scan QR dari HP. Boleh di Wi-Fi manapun atau 4G.</li>
+        <li>Approve di laptop dengan <code>y</code>. Optional trust device untuk auto-approve berikutnya.</li>
+        <li>Sesi terbuka. Tab Terminal default, ada Files, Git, Chat juga.</li>
+        <li>HP mati / putus / scan ulang? Jalankan <code>lawang rotate</code> di laptop. Token baru, tanpa restart agent.</li>
+      </ol>
+
+      <h3>Yang harus dipahami soal cloudflared</h3>
+      <ul>
+        <li><strong>Cloudflared dipasang di laptop user, bukan di server developer Lawang</strong>. Setiap user punya cloudflared masing-masing.</li>
+        <li><strong>URL random tiap restart agent</strong>. Untuk URL tetap, butuh akun Cloudflare.</li>
+        <li><strong>Data tidak nyangkut di server siapapun</strong>. Cloudflare cuma transport pipe terenkripsi. Audit log, file, command tetap di laptop user.</li>
+        <li><strong>Cloudflare lihat metadata</strong> (IP yang konek, volume traffic), bukan konten.</li>
+        <li><strong>Bandwidth dipakai dari koneksi internet user</strong>, bukan dari developer Lawang.</li>
+      </ul>
+
+      <h3>URL stabil dengan named tunnel (advanced)</h3>
+      <p>Hanya kalau user mau URL tidak random. Skip kalau pakai Lawang santai.</p>
+      <p>Prasyarat: akun Cloudflare gratis (cloudflare.com), domain dengan nameserver pointing ke Cloudflare.</p>
+      <pre><code># 1. Login (browser terbuka)
+cloudflared tunnel login
+
+# 2. Bikin tunnel
+cloudflared tunnel create lawang
+# catat UUID dari output
+
+# 3. Buat config
+cat &gt; ~/.cloudflared/config.yml &lt;&lt;EOF
+tunnel: &lt;UUID&gt;
+credentials-file: ~/.cloudflared/&lt;UUID&gt;.json
+
+ingress:
+  - hostname: lawang.namadomain.com
+    service: http://localhost:3999
+  - service: http_status:404
+EOF
+
+# 4. Routing DNS otomatis
+cloudflared tunnel route dns lawang lawang.namadomain.com
+
+# 5. Jalankan tunnel di terminal terpisah
+cloudflared tunnel run lawang
+
+# 6. Jalankan Lawang dengan --no-tunnel (tunnel sudah dipegang manual)
+lawang start --no-tunnel</code></pre>
+
+      <h3>Troubleshooting</h3>
+      <ul>
+        <li><strong>cloudflared not found. Falling back to local-only access.</strong> — binary tidak ada di PATH. Cek <code>which cloudflared</code>. Restart terminal kalau baru install.</li>
+        <li><strong>Timed out waiting for tunnel URL</strong> — Cloudflare lambat respons. Coba lagi atau pakai <code>--no-tunnel</code> sementara.</li>
+        <li><strong>HP error 502 / 521</strong> — Cloudflare aktif tapi laptop tidak respond. Cek <code>lawang start</code> masih jalan, cek firewall laptop tidak blokir port 3999.</li>
+        <li><strong>HP error CERT_INVALID</strong> — pakai URL <code>https://*.trycloudflare.com</code>, bukan IP langsung.</li>
+      </ul>
+
+      <h2 id="s8"><span class="num">08</span>Konfigurasi tambahan</h2>
+
+      <h3>Cloudflared tunnel</h3>
+      <ul>
+        <li>Pasang <code>cloudflared</code>, agent auto-spawn <code>cloudflared tunnel --url http://localhost:&lt;port&gt;</code>.</li>
+        <li>URL di-parse dari log (<code>https://&lt;sub&gt;.trycloudflare.com</code>).</li>
+        <li>Kalau gagal/timeout 20 detik → fallback LAN/local.</li>
+        <li>Matikan dengan <code>--no-tunnel</code>.</li>
+      </ul>
+
+      <h3>Trusted devices</h3>
+      <ul>
+        <li>Saat host jawab <code>y</code>, ada pertanyaan lanjutan untuk trust device.</li>
+        <li>Fingerprint di-hash SHA-256, disimpan di config.</li>
+        <li>Pairing berikutnya dari device sama → auto-approve.</li>
+        <li>Revoke: <code>lawang devices --revoke &lt;id&gt;</code>.</li>
+      </ul>
+
+      <h3>Permissions</h3>
+      <p>
+        Permission default per sesi: <code>terminal</code>, <code>file:read</code>,
+        <code>file:write</code>, <code>git:read</code>, <code>git:write</code>.
+        Endpoint memvalidasi permission yang dibutuhkan.
+      </p>
+
+      <!-- §08 -->
+      <h2 id="s9"><span class="num">09</span>Keamanan</h2>
+      <ul>
+        <li><strong>Pairing token one-time</strong> — di-consume setelah approved.</li>
+        <li><strong>Hash semua secret</strong> — pairing token, session token, fingerprint = SHA-256 (<code>tokens.ts</code>).</li>
+        <li><strong>Path traversal guard</strong> — <code>resolveInside</code> di <code>sandbox.ts</code>.</li>
+        <li><strong>Body limit</strong> — Fastify <code>16 MB</code>; preview <code>1 MB</code>; <code>PUT /api/file</code> ~<code>8 MB</code> base64.</li>
+        <li><strong>Bind address</strong> — <code>0.0.0.0</code>. Untuk akses publik, andalkan tunnel.</li>
+        <li><strong>Audit dulu sebelum revoke</strong> — cek <code>~/.lawang/audit.log</code>.</li>
+      </ul>
+
+      <!-- §09 -->
+      <h2 id="s10"><span class="num">10</span>Troubleshooting</h2>
+      <ul>
+        <li>
+          <strong>npm install gagal di node-pty</strong> — install toolchain native (Xcode CLT, build-essential, atau Visual Studio Build Tools).
+          Latar belakang lengkap kenapa toolchain ini wajib ada di
+          <a href="#why-native-toolchain">Kenapa <code>node-pty</code> butuh compiler native</a>.
+        </li>
+        <li><strong>cloudflared not found</strong> — <code>brew install cloudflared</code> atau setara di OS lain.</li>
+        <li><strong>QR tidak terbaca</strong> — pakai <code>--qr-size large</code> atau buka <code>/qr</code> di laptop.</li>
+        <li><strong>Token expired</strong> — restart agent atau perpanjang <code>--token-ttl</code>.</li>
+        <li><strong>Approval prompt tidak muncul</strong> — pastikan terminal punya stdin (jangan service tanpa TTY); pakai trusted device atau wrap <code>tmux</code>.</li>
+        <li><strong>WebSocket auto-close 4401</strong> — session token salah/expired, login ulang dari pair URL.</li>
+      </ul>
+
+      <!-- §10 -->
+      <h2 id="s11"><span class="num">11</span>Menjalankan Lawang sebagai service</h2>
+      <p>Default <code>lawang start</code> berjalan di foreground. Untuk hosting
+      di VPS / Pi / Mac yang harus selalu reachable, pakai service manager.</p>
+
+      <h3>Pilih sesuai konteks</h3>
+      <ul>
+        <li><strong>Test cepat di mesin sendiri</strong> → tmux / nohup.</li>
+        <li><strong>Linux VPS atau Pi</strong> → <code>lawang install-service</code> (systemd).</li>
+        <li><strong>Mac sebagai server</strong> → <code>lawang install-service</code> (launchd).</li>
+        <li><strong>Sudah pakai PM2</strong> → kombinasikan.</li>
+        <li><strong>Container infra</strong> → Docker dengan <code>--restart unless-stopped</code>.</li>
+      </ul>
+
+      <h3>install-service (cara paling rapi)</h3>
+      <p>Generate file systemd user unit (Linux) atau launchd plist (macOS), lalu register:</p>
+      <pre><code># Linux
+lawang install-service --root ~/projects/myapp --no-tunnel --register
+
+# macOS
+lawang install-service --root ~/projects/myapp --register
+
+# Cek status
+lawang service-status
+
+# Hapus
+lawang uninstall-service
+
+# Lihat isi unit tanpa menulis ke disk
+lawang install-service --print</code></pre>
+      <p>Linux: untuk supaya service tetap jalan tanpa user login, tambahkan
+      <code>loginctl enable-linger $USER</code>.</p>
+
+      <h3>tmux / nohup</h3>
+      <pre><code>tmux new -s lawang
+lawang start --keep-awake
+# detach: Ctrl+B, D    reattach: tmux attach -t lawang
+
+nohup lawang start &gt; ~/lawang.log 2&gt;&amp;1 &amp;
+# stop: pkill -f "lawang start"</code></pre>
+
+      <h3>PM2</h3>
+      <pre><code>npm i -g pm2
+pm2 start "lawang start --no-tunnel" --name lawang
+pm2 save
+pm2 startup</code></pre>
+
+      <h3>Docker</h3>
+      <pre><code>docker run -d \
+  --name lawang \
+  --restart unless-stopped \
+  -p 3999:3999 \
+  -v $HOME:/work \
+  -w /work \
+  yourname/lawang</code></pre>
+
+      <h3>Catatan keamanan</h3>
+      <ul>
+        <li>Service jalan sebagai user yang menjalankan <code>install-service</code>. Tidak pakai sudo.</li>
+        <li>Audit log tetap di <code>~/.lawang/audit.log</code>.</li>
+        <li>systemd unit punya hardening minimal: <code>NoNewPrivileges</code>, <code>ProtectSystem=full</code>, <code>PrivateTmp</code>.</li>
+        <li>launchd plist set <code>PATH</code> default supaya <code>cloudflared</code> / <code>git</code> ditemukan saat agent di-spawn.</li>
+      </ul>
+
+      <h2 id="s12"><span class="num">12</span>Quick start</h2>
+      <pre><code># 1. Clone &amp; install
+cd ~/lawang
+npm install
+
+# 2. Build sekali
+npm run build
+
+# 3. Jalankan agent
+npm start
+
+# 4. Scan QR dari HP, atau buka pair URL di browser device kedua
+# 5. Approve dari CLI host (y/N), opsional trust device
+# 6. Sesi terbuka di /#/terminal — terminal, files, dan git siap dipakai</code></pre>
+
+      <p style="margin-top: 32px; color: var(--ink-soft);">
+        Untuk konteks produk yang lebih luas (visi, milestone berikutnya, risiko),
+        rujuk <code>prd_remote_access_app.md</code> di root repo.
+      </p>
+
+    </article>
+  </div>
+
+</main>
+
+<footer>
+  <div class="frame colophon">
+    <div>
+      <div class="section-num"># COLOPHON</div>
+      <div class="marque"><em>lawang</em></div>
+      <p style="color: var(--ink-soft); max-width: 50ch; margin-top: 16px;">
+        Set in Fraunces &amp; JetBrains Mono. Dokumentasi ini ditulis untuk
+        dibaca, bukan di-skim. Kalau ada yang janggal, buka issue di repo.
+      </p>
+    </div>
+    <div style="display: grid; gap: 8px;">
+      <div>HOME · <a href="index.html">/landing</a></div>
+      <div>REPO · <a href="https://github.com" target="_blank" rel="noopener">github.com/your/lawang</a></div>
+      <div>PRD &nbsp;· <a href="../prd_remote_access_app.md">prd_remote_access_app.md</a></div>
+      <div style="margin-top: 24px;">© 2026 — MIT License</div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

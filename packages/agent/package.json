@@ -1,0 +1,65 @@
+{
+  "name": "lawang",
+  "version": "0.3.0",
+  "description": "Local-first remote terminal with QR pairing. Run a single command, scan a QR, get a browser/mobile shell — host approval mandatory.",
+  "license": "MIT",
+  "homepage": "https://github.com/lawang-app/lawang",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lawang-app/lawang.git",
+    "directory": "packages/agent"
+  },
+  "bugs": "https://github.com/lawang-app/lawang/issues",
+  "keywords": [
+    "lawang",
+    "remote",
+    "terminal",
+    "qr",
+    "self-hosted",
+    "local-first",
+    "shell",
+    "cli",
+    "ssh-alternative",
+    "mobile-shell",
+    "developer-tools"
+  ],
+  "bin": {
+    "lawang": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "public",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node ../../scripts/copy-web.js",
+    "dev": "tsx watch src/cli.ts start",
+    "start": "node dist/cli.js start",
+    "prepublishOnly": "npm --prefix ../web run build && npm run build"
+  },
+  "dependencies": {
+    "@fastify/static": "7.0.4",
+    "@fastify/websocket": "10.0.1",
+    "commander": "12.1.0",
+    "fastify": "4.28.1",
+    "node-pty": "1.0.0",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "0.12.0",
+    "simple-git": "^3.27.0",
+    "ws": "8.18.0",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.10",
+    "@types/qrcode": "^1.5.5",
+    "@types/qrcode-terminal": "0.12.2",
+    "@types/ws": "8.5.10",
+    "tsx": "4.16.2",
+    "typescript": "5.5.4"
+  },
+  "engines": {
+    "node": ">=18.17"
+  }
+}

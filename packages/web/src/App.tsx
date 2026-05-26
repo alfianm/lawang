@@ -1,0 +1,33 @@
+import { useRoute } from "./lib/router";
+import { HomePage } from "./pages/Home";
+import { PairPage } from "./pages/Pair";
+import { SessionPage } from "./pages/Session";
+
+export function App() {
+  const [route, navigate] = useRoute();
+
+  if (route.name === "pair") {
+    return (
+      <PairPage
+        token={route.token}
+        onConnected={(t) => navigate({ name: "session", tab: "terminal", sessionToken: t })}
+        onCancel={() => navigate({ name: "home" })}
+      />
+    );
+  }
+  if (route.name === "session") {
+    if (!route.sessionToken) {
+      navigate({ name: "home" });
+      return null;
+    }
+    return (
+      <SessionPage
+        sessionToken={route.sessionToken}
+        tab={route.tab}
+        onTabChange={(tab) => navigate({ name: "session", tab, sessionToken: route.sessionToken })}
+        onDisconnected={() => navigate({ name: "home" })}
+      />
+    );
+  }
+  return <HomePage />;
+}

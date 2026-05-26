@@ -1,0 +1,16 @@
+{
+  "name": "lawang-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w lawang-web && npm run build -w lawang",
+    "build:web": "npm run build -w lawang-web",
+    "build:agent": "npm run build -w lawang",
+    "dev:agent": "npm run dev -w lawang",
+    "dev:web": "npm run dev -w lawang-web",
+    "start": "node packages/agent/dist/cli.js start"
+  }
+}

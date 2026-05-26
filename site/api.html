@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>API Reference · Lawang</title>
+  <meta name="description" content="Referensi lengkap REST + WebSocket Lawang: pairing, sesi, file, git. Dengan contoh curl untuk tiap endpoint." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,30..100,0..1;1,9..144,300..700,30..100,0..1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="frame topbar-inner">
+    <a href="index.html" class="brand">
+      <span class="dot" aria-hidden="true"></span>
+      <span>Lawang</span>
+    </a>
+    <nav>
+      <a href="index.html#why" title="Why"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/></svg>Why</a>
+      <a href="index.html#how" title="How"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>How</a>
+      <a href="index.html#stack" title="Stack"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/><path d="m3 18 9 5 9-5"/></svg>Stack</a>
+      <a href="index.html#start" title="Start"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v16l13-8L6 4Z"/></svg>Start</a>
+      <a href="api.html" data-active="true" title="API"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4 3 12l5 8"/><path d="m16 4 5 8-5 8"/><path d="m14 4-4 16"/></svg>API</a>
+      <a href="docs.html" title="Docs"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"/><path d="M14 4v5h5"/><path d="M8 13h8M8 17h6"/></svg>Docs</a>
+    </nav>
+  </div>
+</header>
+
+<main class="frame">
+
+  <section style="padding: clamp(40px, 6vw, 72px) 0 24px; border-bottom: 1px solid var(--rule);">
+    <div class="eyebrow">API Reference · v0.1.0 · base = origin yang serve agent</div>
+    <h1 style="font-size: clamp(40px, 7vw, 96px); margin-top: 14px;">
+      <span class="ital" style="color: var(--accent); font-style: italic;">Endpoint</span>, terbuka apa adanya.
+    </h1>
+    <p style="font-size: clamp(17px, 1.4vw, 20px); max-width: 60ch; color: var(--ink-soft); margin-top: 18px;">
+      Semua endpoint di-host oleh agent yang sama. Untuk <code class="mono">curl</code>,
+      base URL biasanya <code class="mono">http://localhost:3999</code> atau URL
+      cloudflared yang dicetak CLI saat start.
+    </p>
+    <div class="callout" style="margin-top: 24px;">
+      <strong>Auth.</strong> Endpoint di luar zona <em>public</em> butuh header
+      <code>Authorization: Bearer &lt;sessionToken&gt;</code>. Session token
+      keluar dari respons <code>POST /api/pair/request</code> setelah host
+      approve.
+    </div>
+  </section>
+
+  <div class="docs">
+    <aside class="api-toc">
+      <div class="group">
+        <div class="label">Public</div>
+        <a href="#health"><span>/health</span><span class="m">GET</span></a>
+        <a href="#info"><span>/api/info</span><span class="m">GET</span></a>
+        <a href="#qr"><span>/qr · /qr.svg</span><span class="m">GET</span></a>
+        <a href="#pair"><span>/api/pair/request</span><span class="m">POST</span></a>
+      </div>
+      <div class="group">
+        <div class="label">Session</div>
+        <a href="#session"><span>/api/session</span><span class="m">GET</span></a>
+        <a href="#env"><span>/api/env</span><span class="m">GET</span></a>
+        <a href="#history"><span>/api/sessions/history</span><span class="m">GET</span></a>
+      </div>
+      <div class="group">
+        <div class="label">Files</div>
+        <a href="#files-list"><span>/api/files</span><span class="m">GET</span></a>
+        <a href="#file-read"><span>/api/file</span><span class="m">GET</span></a>
+        <a href="#file-download"><span>/api/file/download</span><span class="m">GET</span></a>
+        <a href="#file-write"><span>/api/file</span><span class="m">PUT</span></a>
+        <a href="#file-upload"><span>/api/file/upload</span><span class="m">POST</span></a>
+        <a href="#dir"><span>/api/dir</span><span class="m">POST</span></a>
+        <a href="#file-rename"><span>/api/file/rename</span><span class="m">POST</span></a>
+        <a href="#file-delete"><span>/api/file</span><span class="m">DEL</span></a>
+      </div>
+      <div class="group">
+        <div class="label">Git</div>
+        <a href="#git-status"><span>/api/git/status</span><span class="m">GET</span></a>
+        <a href="#git-diff"><span>/api/git/diff</span><span class="m">GET</span></a>
+        <a href="#git-log"><span>/api/git/log</span><span class="m">GET</span></a>
+        <a href="#git-stage"><span>/api/git/stage</span><span class="m">POST</span></a>
+        <a href="#git-unstage"><span>/api/git/unstage</span><span class="m">POST</span></a>
+        <a href="#git-commit"><span>/api/git/commit</span><span class="m">POST</span></a>
+        <a href="#git-pull"><span>/api/git/pull</span><span class="m">POST</span></a>
+        <a href="#git-push"><span>/api/git/push</span><span class="m">POST</span></a>
+      </div>
+      <div class="group">
+        <div class="label">Chat / Exec</div>
+        <a href="#exec"><span>/api/exec</span><span class="m">POST</span></a>
+      </div>
+      <div class="group">
+        <div class="label">Host power</div>
+        <a href="#power-caps"><span>/api/system/power</span><span class="m">GET</span></a>
+        <a href="#power-do"><span>/api/system/power</span><span class="m">POST</span></a>
+        <a href="#battery"><span>/api/system/battery</span><span class="m">GET</span></a>
+      </div>
+      <div class="group">
+        <div class="label">WebSocket</div>
+        <a href="#ws-terminal"><span>/ws/terminal</span><span class="m">WS</span></a>
+      </div>
+    </aside>
+
+    <article>
+
+      <!-- ─────────────── PUBLIC ─────────────── -->
+      <h2 style="margin-top: 0; padding-top: 0; border-top: 0;"><span class="num">§ A</span>Public</h2>
+
+      <div class="endpoint" id="health">
+        <div class="head"><span class="method get">GET</span><span class="path">/health</span><span class="auth">no auth</span></div>
+        <p>Health probe ringan. Aman dipakai untuk uptime check.</p>
+        <pre><code>curl -s http://localhost:3999/health</code></pre>
+        <pre><code>{ "status": "ok", "machineName": "your-machine", "version": "0.1.0" }</code></pre>
+      </div>
+
+      <div class="endpoint" id="info">
+        <div class="head"><span class="method get">GET</span><span class="path">/api/info</span><span class="auth">no auth</span></div>
+        <p>Info publik tentang agent. Dipakai oleh halaman <code>Pair</code> untuk render machine name.</p>
+        <pre><code>curl -s http://localhost:3999/api/info</code></pre>
+        <pre><code>{
+  "machineName": "your-machine",
+  "version": "0.1.0",
+  "tunnelUrl": "https://soft-fern.trycloudflare.com",
+  "pairUrl": "https://soft-fern.trycloudflare.com/#/pair?token=k3X…"
+}</code></pre>
+        <p style="font-size: 14px; color: var(--ink-soft);"><code>pairUrl</code> selalu berisi token pairing terbaru. Halaman <code>/qr</code> mempolling endpoint ini setiap 5 detik untuk auto-refresh QR setelah <code>lawang rotate</code>.</p>
+      </div>
+
+      <div class="endpoint" id="qr">
+        <div class="head"><span class="method get">GET</span><span class="path">/qr  ·  /qr.svg</span><span class="auth">no auth</span></div>
+        <p>Halaman HTML full-screen QR (untuk dibuka di laptop) dan SVG mentah QR pairing yang aktif. URL pair di-rotate setiap kali agent di-restart.</p>
+        <pre><code>open http://localhost:3999/qr            # mac
+curl http://localhost:3999/qr.svg &gt; qr.svg</code></pre>
+      </div>
+
+      <div class="endpoint" id="pair">
+        <div class="head"><span class="method post">POST</span><span class="path">/api/pair/request</span><span class="auth">no auth · rate-limited 20 / menit</span></div>
+        <p>Kirim pairing token + identitas device. Server akan menahan koneksi sampai host menjawab di CLI (atau token kadaluarsa). Trusted device lewat fingerprint cocok → auto-approve tanpa prompt.</p>
+
+        <div class="params">
+          <div class="row"><span class="k">pairingToken*</span><span class="v">Raw token dari URL <code>?token=…</code>, 8–256 char.</span></div>
+          <div class="row"><span class="k">deviceName</span><span class="v">String 1–80 char. Default: deteksi user-agent.</span></div>
+          <div class="row"><span class="k">deviceType</span><span class="v"><code>mobile</code> · <code>desktop</code> · <code>unknown</code>.</span></div>
+          <div class="row"><span class="k">deviceFingerprint</span><span class="v">Random ID per device (lihat <code>localStorage</code> client). Wajib kalau ingin trust.</span></div>
+        </div>
+
+        <pre><code>curl -s -X POST http://localhost:3999/api/pair/request \
+  -H 'content-type: application/json' \
+  -d '{
+    "pairingToken": "k3X…",
+    "deviceName": "iPhone Safari",
+    "deviceType": "mobile",
+    "deviceFingerprint": "9d7c-…"
+  }'</code></pre>
+        <pre><code>{
+  "status": "approved",
+  "sessionToken": "S_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "machineName": "your-machine",
+  "permissions": ["terminal","file:read","file:write","git:read","git:write"],
+  "trusted": true
+}</code></pre>
+        <p style="font-size: 14px; color: var(--ink-soft);">Status lain: <code>rejected</code>, <code>rate_limited</code> (HTTP 429), <code>invalid_request</code> (HTTP 400).</p>
+      </div>
+
+      <!-- ─────────────── SESSION ─────────────── -->
+      <h2><span class="num">§ B</span>Session</h2>
+
+      <div class="endpoint" id="session">
+        <div class="head"><span class="method get">GET</span><span class="path">/api/session</span><span class="auth req">bearer required</span></div>
+        <p>Info sesi yang sedang aktif: machine, root path, dan permission yang dipegang token.</p>
+        <pre><code>curl -s http://localhost:3999/api/session \
+  -H "Authorization: Bearer $TOKEN"</code></pre>
+        <pre><code>{
+  "sessionId": "ad7e…",
+  "machineName": "your-machine",
+  "rootPath": "~/lawang",
+  "permissions": ["terminal","file:read","file:write","git:read","git:write"],
+  "deviceName": "iPhone Safari",
+  "createdAt": "2026-05-23T15:00:11.231Z"
+}</code></pre>
+      </div>
+
+      <div class="endpoint" id="env">
+        <div class="head"><span class="method get">GET</span><span class="path">/api/env</span><span class="auth req">bearer required</span></div>
+        <p>Auto-detect environment host: machine info, runtime Node, shell aktif, dan ringkasan project (package manager, lockfile, git repo, workspaces). Berguna untuk render badge di UI atau menyesuaikan command suggestion.</p>
+        <pre><code>curl -s http://localhost:3999/api/env \
+  -H "Authorization: Bearer $TOKEN"</code></pre>
+        <pre><code>{
+  "machine":  { "hostname": "your-machine", "platform": "darwin", "arch": "arm64", "cpus": 8, "release": "24.6.0" },
+  "runtime":  { "node": "22.20.0", "npm_user_agent": null },
+  "shell":    { "path": "/bin/zsh", "name": "zsh" },
+  "project":  {
+    "rootPath": "~/lawang",
+    "name": "lawang-monorepo",
+    "version": "0.1.0",
+    "packageManager": "npm",
+    "packageManagerLockfile": "package-lock.json",
+    "isGitRepo": true,
+    "monorepo": true,
+    "workspaces": ["packages/*"]
+  }
+}</code></pre>
+      </div>
+
+      <div class="endpoint" id="history">
+        <div class="head"><span class="method get">GET</span><span class="path">/api/sessions/history?limit=&lt;n&gt;</span><span class="auth req">bearer required</span></div>
+        <p>Sesi yang sudah lewat, dibaca dari <code>~/.lawang/audit.log</code>.
+        Server merekonstruksi pasangan <code>session_started</code> dengan
+        <code>session_ended/revoked/expired</code>. Default <code>limit=25</code>,
+        maksimum <code>200</code>.</p>
+        <pre><code>curl -s "http://localhost:3999/api/sessions/history?limit=10" \
+  -H "Authorization: Bearer $TOKEN"</code></pre>
+        <pre><code>{
+  "limit": 10,
+  "records": [
+    {
+      "sessionId": "ad7e1c0b-…",
+      "deviceName": "iPhone Safari",
+      "startedAt": "2026-05-23T15:00:11.231Z",
+      "endedAt":   "2026-05-23T15:42:58.901Z",
+      "endReason": "ended",
+      "remoteAddr": "192.168.1.42",
+      "trusted": true
+    }
+  ]
+}</code></pre>
+      </div>
+
+      <!-- ─────────────── FILES ─────────────── -->
+      <h2><span class="num">§ C</span>Files</h2>
+      <p style="color: var(--ink-soft);">Semua path bersifat relatif terhadap <code>rootPath</code> sesi. Path traversal (<code>..</code>) ditolak oleh <code>resolveInside()</code>. Rate limit: 240/menit untuk read, 60/menit untuk write.</p>
+
+      <div class="endpoint" id="files-list">
+        <div class="head"><span class="method get">GET</span><span class="path">/api/files?path=&lt;rel&gt;</span><span class="auth req">bearer required</span></div>
+        <p>List entri direktori. Sort: dir dulu, lalu alfabet.</p>
+        <pre><code>curl -s "http://localhost:3999/api/files?path=src" \
+  -H "Authorization: Bearer $TOKEN"</code></pre>
+        <pre><code>{
+  "path": "src",
+  "rootName": "remoteapp",
+  "entries": [
+    { "name": "lib", "path": "src/lib", "type": "dir",  "size": 0,    "modifiedAt": "…" },
+    { "name": "cli.ts","path": "src/cli.ts","type":"file","size": 7340, "modifiedAt": "…" }
+  ]
+}</code></pre>
+      </div>
+
+      <div class="endpoint" id="file-read">
+        <div class="head"><span class="method get">GET</span><span class="path">/api/file?path=&lt;rel&gt;</span><span class="auth req">bearer required</span></div>
+        <p>Baca file. Maks 1 MB. Binary di-encode <code>base64</code>; teks dikirim apa adanya.</p>
+        <pre><code>curl -s "http://localhost:3999/api/file?path=README.md" \
+  -H "Authorization: Bearer $TOKEN"</code></pre>
+        <pre><code>{
+  "path": "README.md",
+  "size": 1023,
+  "modifiedAt": "…",
+  "encoding": "utf8",
+  "content": "# Lawang\n…",
+  "isBinary": false,
+  "mime": "text/markdown"
+}</code></pre>
+      </div>
+
+      <div class="endpoint" id="file-download">
+        <div class="head"><span class="method get">GET</span><span class="path">/api/file/download?path=&lt;rel&gt;&amp;token=&lt;sessionToken&gt;</span><span class="auth req">token in query</span></div>
+        <p>Stream file biner. Token diteruskan via query agar bisa dipakai langsung di <code>&lt;a download&gt;</code> tanpa setup header. Gunakan dengan hati-hati di environment shared.</p>
+        <pre><code>curl -L -o snapshot.png \
+  "http://localhost:3999/api/file/download?path=docs/snapshot.png&token=$TOKEN"</code></pre>
+      </div>
+
+      <div class="endpoint" id="file-write">
+        <div class="head"><span class="method put">PUT</span><span class="path">/api/file</span><span class="auth req">bearer required</span></div>
+        <p>Tulis ulang file. Body JSON dengan <code>encoding</code> <code>utf8</code> (default) atau <code>base64</code>. Body content dibatasi ~8 MB base64.</p>
+        <pre><code>curl -s -X PUT http://localhost:3999/api/file \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{
+    "path": "notes.md",
+    "content": "# Hello\nDitulis dari HP.",
+    "encoding": "utf8"
+  }'</code></pre>
+        <pre><code>{ "status": "ok", "path": "notes.md", "size": 28, "modifiedAt": "…" }</code></pre>
+      </div>
+
+      <div class="endpoint" id="file-upload">
+        <div class="head"><span class="method post">POST</span><span class="path">/api/file/upload?path=&lt;rel&gt;</span><span class="auth req">bearer required</span></div>
+        <p>Upload streaming. Kirim raw body (<code>application/octet-stream</code>); body limit Fastify 16 MB. Untuk file besar, ini lebih efisien daripada base64.</p>
+        <pre><code>curl -s -X POST \
+  "http://localhost:3999/api/file/upload?path=uploads/photo.jpg" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/octet-stream' \
+  --data-binary @photo.jpg</code></pre>
+        <pre><code>{ "status": "ok", "path": "uploads/photo.jpg", "size": 482311 }</code></pre>
+      </div>
+
+      <div class="endpoint" id="dir">
+        <div class="head"><span class="method post">POST</span><span class="path">/api/dir</span><span class="auth req">bearer required</span></div>
+        <p>Buat direktori (recursive, <code>mkdir -p</code>).</p>
+        <pre><code>curl -s -X POST http://localhost:3999/api/dir \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{ "path": "drafts/2026" }'</code></pre>
+        <pre><code>{ "status": "ok", "path": "drafts/2026" }</code></pre>
+      </div>
+
+      <div class="endpoint" id="file-rename">
+        <div class="head"><span class="method post">POST</span><span class="path">/api/file/rename</span><span class="auth req">bearer required</span></div>
+        <p>Pindah / rename. Target tidak boleh sudah ada (HTTP 409 <code>conflict</code>).</p>
+        <pre><code>curl -s -X POST http://localhost:3999/api/file/rename \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{ "from": "notes.md", "to": "drafts/notes.md" }'</code></pre>
+        <pre><code>{ "status": "ok", "from": "notes.md", "to": "drafts/notes.md" }</code></pre>
+      </div>
+
+      <div class="endpoint" id="file-delete">
+        <div class="head"><span class="method delete">DEL</span><span class="path">/api/file?path=&lt;rel&gt;</span><span class="auth req">bearer required</span></div>
+        <p>Hapus file atau folder (recursive). Root project tidak bisa dihapus (HTTP 403).</p>
+        <pre><code>curl -s -X DELETE \
+  "http://localhost:3999/api/file?path=drafts/old.md" \
+  -H "Authorization: Bearer $TOKEN"</code></pre>
+        <pre><code>{ "status": "ok" }</code></pre>
+      </div>
+
+      <!-- ─────────────── GIT ─────────────── -->
+      <h2><span class="num">§ D</span>Git</h2>
+      <p style="color: var(--ink-soft);">Bekerja di working dir = <code>rootPath</code> sesi. Kalau bukan repo git, semua endpoint balas HTTP 409 <code>not_a_repo</code>.</p>
+
+      <div class="endpoint" id="git-status">
+        <div class="head"><span class="method get">GET</span><span class="path">/api/git/status</span><span class="auth req">bearer required</span></div>
+        <pre><code>curl -s http://localhost:3999/api/git/status \
+  -H "Authorization: Bearer $TOKEN"</code></pre>
+      </div>
+
+      <div class="endpoint" id="git-diff">
+        <div class="head"><span class="method get">GET</span><span class="path">/api/git/diff?path=&lt;rel&gt;&amp;staged=0|1</span><span class="auth req">bearer required</span></div>
+        <p>Ambil patch unified. Tanpa <code>path</code> → diff seluruh worktree.</p>
+        <pre><code>curl -s "http://localhost:3999/api/git/diff?path=src/cli.ts" \
+  -H "Authorization: Bearer $TOKEN"</code></pre>
+      </div>
+
+      <div class="endpoint" id="git-log">
+        <div class="head"><span class="method get">GET</span><span class="path">/api/git/log?limit=20</span><span class="auth req">bearer required</span></div>
+        <pre><code>curl -s "http://localhost:3999/api/git/log?limit=10" \
+  -H "Authorization: Bearer $TOKEN"</code></pre>
+      </div>
+
+      <div class="endpoint" id="git-stage">
+        <div class="head"><span class="method post">POST</span><span class="path">/api/git/stage</span><span class="auth req">bearer required</span></div>
+        <pre><code>curl -s -X POST http://localhost:3999/api/git/stage \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{ "paths": ["src/cli.ts", "README.md"] }'</code></pre>
+      </div>
+
+      <div class="endpoint" id="git-unstage">
+        <div class="head"><span class="method post">POST</span><span class="path">/api/git/unstage</span><span class="auth req">bearer required</span></div>
+        <pre><code>curl -s -X POST http://localhost:3999/api/git/unstage \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{ "paths": ["README.md"] }'</code></pre>
+      </div>
+
+      <div class="endpoint" id="git-commit">
+        <div class="head"><span class="method post">POST</span><span class="path">/api/git/commit</span><span class="auth req">bearer required</span></div>
+        <p>Commit yang sudah staged. Pesan max 1024 karakter.</p>
+        <pre><code>curl -s -X POST http://localhost:3999/api/git/commit \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{ "message": "fix: rename helper" }'</code></pre>
+      </div>
+
+      <div class="endpoint" id="git-pull">
+        <div class="head"><span class="method post">POST</span><span class="path">/api/git/pull</span><span class="auth req">bearer required</span></div>
+        <pre><code>curl -s -X POST http://localhost:3999/api/git/pull \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{}'</code></pre>
+      </div>
+
+      <div class="endpoint" id="git-push">
+        <div class="head"><span class="method post">POST</span><span class="path">/api/git/push</span><span class="auth req">bearer required</span></div>
+        <p>Push branch sekarang. Kalau remote butuh credential interaktif, push akan gagal — pakai SSH key atau credential helper.</p>
+        <pre><code>curl -s -X POST http://localhost:3999/api/git/push \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{}'</code></pre>
+      </div>
+
+      <!-- ─────────────── WS ─────────────── -->
+      <h2><span class="num">§ E</span>Chat / Exec</h2>
+      <p style="color: var(--ink-soft);">Endpoint one-shot exec untuk tab <em>Chat</em>. Server menjalankan command di shell login (<code>$SHELL -lc</code> di Unix, <code>cmd /d /s /c</code> di Windows) dengan cwd di-resolve lewat sandbox yang sama, env <code>TERM=dumb</code> + <code>NO_COLOR=1</code> agar output bersih, dan output combined dibatasi 256 KB. Default timeout 15 detik (max 60).</p>
+
+      <div class="endpoint" id="exec">
+        <div class="head"><span class="method post">POST</span><span class="path">/api/exec</span><span class="auth req">bearer required · perm: terminal</span></div>
+        <div class="params">
+          <div class="row"><span class="k">command*</span><span class="v">String 1–4000 char. Diteruskan ke shell sebagai <code>-lc &lt;command&gt;</code>.</span></div>
+          <div class="row"><span class="k">cwd</span><span class="v">Relatif terhadap root project. Default <code>"."</code>.</span></div>
+          <div class="row"><span class="k">timeoutMs</span><span class="v">1000–60000. Default 15000.</span></div>
+        </div>
+        <pre><code>curl -s -X POST http://localhost:3999/api/exec \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{ "command": "git status -s", "cwd": "." }'</code></pre>
+        <pre><code>{
+  "cwd": ".",
+  "command": "git status -s",
+  "stdout": " M README.md\n?? site/\n",
+  "stderr": "",
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 84,
+  "truncated": false,
+  "timedOut": false
+}</code></pre>
+        <p style="font-size: 14px; color: var(--ink-soft);">Catatan: command interaktif (vim, htop, ssh) <strong>tidak</strong> akan jalan di sini—pakai tab Terminal untuk itu.</p>
+      </div>
+
+      <h2><span class="num">§ E</span>WebSocket</h2>
+
+      <div class="endpoint" id="ws-terminal">
+        <div class="head"><span class="method ws">WS</span><span class="path">/ws/terminal?token=&lt;sessionToken&gt;</span><span class="auth req">token in query</span></div>
+        <p>Pipe ke PTY shell host. Pesan dikirim sebagai JSON <code>{ event, payload }</code>. Auto-close dengan code <code>4401</code> kalau token tidak valid.</p>
+
+        <h3 style="margin-top: 18px;">Server → client</h3>
+        <ul>
+          <li><code>session:connected</code> — payload: <code>{ machineName, sessionId, cwd, shell }</code>.</li>
+          <li><code>terminal:output</code> — payload: <code>{ data: string }</code> (chunk PTY stdout).</li>
+          <li><code>terminal:exit</code> — payload: <code>{ exitCode, signal }</code>.</li>
+          <li><code>error</code> — payload: <code>{ code, message }</code>.</li>
+        </ul>
+
+        <h3>Client → server</h3>
+        <ul>
+          <li><code>terminal:input</code> — payload: <code>{ data: string }</code>.</li>
+          <li><code>terminal:resize</code> — payload: <code>{ cols, rows }</code>.</li>
+          <li><code>session:disconnect</code> — minta server menutup koneksi.</li>
+        </ul>
+
+        <h3>Smoke test (websocat)</h3>
+        <pre><code>websocat "ws://localhost:3999/ws/terminal?token=$TOKEN"
+# kirim:
+{"event":"terminal:resize","payload":{"cols":120,"rows":32}}
+{"event":"terminal:input","payload":{"data":"echo hello\n"}}</code></pre>
+      </div>
+
+      <!-- ─────────────── ERRORS ─────────────── -->
+      <h2><span class="num">§ F</span>Host power</h2>
+      <p style="color: var(--ink-soft);">Trigger sleep / shutdown pada mesin host. Server menjalankan command sebagai user yang menjalankan agent — di macOS pakai <code>pmset sleepnow</code> atau <code>osascript</code> graceful shutdown (tanpa sudo karena user adalah console user aktif), di Linux pakai <code>systemctl suspend|poweroff</code> (biasanya tanpa password berkat polkit pada session aktif). Windows belum didukung.</p>
+
+      <div class="endpoint" id="power-caps">
+        <div class="head"><span class="method get">GET</span><span class="path">/api/system/power</span><span class="auth req">bearer required · perm: terminal</span></div>
+        <p>Kapabilitas sleep/shutdown untuk host saat ini.</p>
+        <pre><code>curl -s http://localhost:3999/api/system/power \
+  -H "Authorization: Bearer $TOKEN"</code></pre>
+        <pre><code>{
+  "sleep":    { "supported": true,  "provider": "pmset" },
+  "shutdown": { "supported": true,  "provider": "osascript", "needsAuth": false },
+  "reboot":   { "supported": true,  "provider": "osascript" },
+  "lock":     { "supported": true,  "provider": "pmset displaysleepnow" }
+}</code></pre>
+      </div>
+
+      <div class="endpoint" id="power-do">
+        <div class="head"><span class="method post">POST</span><span class="path">/api/system/power</span><span class="auth req">bearer required · perm: terminal · confirm wajib</span></div>
+        <div class="params">
+          <div class="row"><span class="k">action*</span><span class="v"><code>sleep</code>, <code>shutdown</code>, <code>reboot</code>, atau <code>lock</code>. <code>lock</code> default delay 0; lainnya 5 detik.</span></div>
+          <div class="row"><span class="k">confirm*</span><span class="v">Wajib literal <code>true</code>. Tanpa ini server balas HTTP 400 <code>confirmation_required</code>.</span></div>
+          <div class="row"><span class="k">delaySeconds</span><span class="v">0–120, default <code>5</code>. HTTP response balik dulu, baru host shutdown setelah delay.</span></div>
+        </div>
+        <pre><code>curl -s -X POST http://localhost:3999/api/system/power \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{ "action": "sleep", "confirm": true }'</code></pre>
+        <pre><code>{
+  "status": "queued",
+  "action": "sleep",
+  "delaySeconds": 5,
+  "willHappenAt": "2026-05-23T16:42:11.000Z"
+}</code></pre>
+        <p style="font-size: 14px; color: var(--ink-soft);">UI di <em>Session header</em> menyediakan tombol <strong>host</strong> dengan modal konfirmasi double-tap.</p>
+      </div>
+
+      <div class="endpoint" id="battery">
+        <div class="head"><span class="method get">GET</span><span class="path">/api/system/battery</span><span class="auth req">bearer required · perm: file:read</span></div>
+        <p>Info baterai host. Polling tiap menit di UI untuk render badge baterai di header.
+        macOS pakai <code>pmset -g batt</code>, Linux pakai sysfs <code>/sys/class/power_supply</code>.</p>
+        <pre><code>curl -s http://localhost:3999/api/system/battery \
+  -H "Authorization: Bearer $TOKEN"</code></pre>
+        <pre><code>{
+  "supported": true,
+  "hasBattery": true,
+  "percent": 62,
+  "charging": false,
+  "acConnected": false,
+  "state": "discharging",
+  "timeRemainingMin": 397,
+  "source": "pmset"
+}</code></pre>
+        <p style="font-size: 14px; color: var(--ink-soft);">Mesin tanpa baterai (desktop on AC) → <code>hasBattery: false</code>, <code>acConnected: true</code>. UI menampilkan badge "AC" tanpa percent.</p>
+      </div>
+
+      <h2><span class="num">§ G</span>Error shape</h2>
+      <p>Server menjawab dengan HTTP status idiomatik plus body JSON kecil. Kode yang sering muncul:</p>
+      <table>
+        <thead><tr><th>HTTP</th><th>status</th><th>kapan</th></tr></thead>
+        <tbody>
+          <tr><td>400</td><td><code>invalid_request</code></td><td>Body tidak lolos zod / parameter hilang.</td></tr>
+          <tr><td>401</td><td><code>unauthorized</code></td><td>Token tidak ada / expired.</td></tr>
+          <tr><td>403</td><td><code>forbidden</code></td><td>Path di luar root, atau permission tidak cukup.</td></tr>
+          <tr><td>404</td><td><code>not_found</code></td><td>File / route tidak ada.</td></tr>
+          <tr><td>409</td><td><code>conflict / not_a_repo</code></td><td>Target rename sudah ada, atau bukan repo git.</td></tr>
+          <tr><td>413</td><td><code>too_large</code></td><td>File &gt; 1 MB untuk preview, atau body &gt; 16 MB.</td></tr>
+          <tr><td>429</td><td><code>rate_limited</code></td><td>Pairing &gt; 20/menit, file read &gt; 240/menit, file write &gt; 60/menit.</td></tr>
+        </tbody>
+      </table>
+
+    </article>
+  </div>
+
+</main>
+
+<footer>
+  <div class="frame colophon">
+    <div>
+      <div class="section-num">§ COLOPHON</div>
+      <div class="marque"><em>lawang</em></div>
+      <p style="color: var(--ink-soft); max-width: 50ch; margin-top: 16px;">
+        API stabil untuk MVP v0.1.0. Perubahan akan ditandai di
+        <code>prd_remote_access_app.md</code>.
+      </p>
+    </div>
+    <div style="display: grid; gap: 8px;">
+      <div>HOME · <a href="index.html">/landing</a></div>
+      <div>DOCS · <a href="docs.html">/docs</a></div>
+      <div>REPO · <a href="https://github.com" target="_blank" rel="noopener">github.com/your/lawang</a></div>
+      <div style="margin-top: 24px;">© 2026 — MIT License</div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

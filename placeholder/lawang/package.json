@@ -1,0 +1,27 @@
+{
+  "name": "lawang",
+  "version": "0.0.1",
+  "description": "Lawang — local-first remote terminal with QR pairing. Placeholder reservation; full release coming soon.",
+  "license": "MIT",
+  "bin": {
+    "lawang": "bin/lawang.js"
+  },
+  "files": [
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.17"
+  },
+  "keywords": [
+    "lawang",
+    "remote",
+    "terminal",
+    "qr",
+    "self-hosted",
+    "local-first",
+    "shell",
+    "cli"
+  ]
+}

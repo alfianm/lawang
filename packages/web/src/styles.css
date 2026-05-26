@@ -1,0 +1,33 @@
+@import "@xterm/xterm/css/xterm.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body, #root {
+  height: 100%;
+  background: #0b0d10;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.xterm .xterm-viewport {
+  overflow-y: auto;
+  background: transparent !important;
+}
+
+.xterm,
+.xterm-viewport,
+.xterm-screen {
+  background: transparent !important;
+}

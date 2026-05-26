@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lawang — Terminal punyamu, di mana saja, dengan izin kamu sendiri.</title>
+  <meta name="description" content="Local-first remote terminal. Satu perintah CLI, scan QR, sesi shell di browser HP—setiap akses harus kamu approve dari mesin host." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,30..100,0..1;1,9..144,300..700,30..100,0..1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="frame topbar-inner">
+    <a href="index.html" class="brand">
+      <span class="dot" aria-hidden="true"></span>
+      <span>Lawang</span>
+    </a>
+    <nav>
+      <a href="#why" title="Why"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/></svg>Why</a>
+      <a href="#how" title="How"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>How</a>
+      <a href="#stack" title="Stack"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/><path d="m3 18 9 5 9-5"/></svg>Stack</a>
+      <a href="#start" title="Start"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v16l13-8L6 4Z"/></svg>Start</a>
+      <a href="#faq" title="FAQ"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 1 1-3.3-6.5L21 4l-1 4-3.7-1"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7"/></svg>FAQ</a>
+      <a href="api.html" title="API"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4 3 12l5 8"/><path d="m16 4 5 8-5 8"/><path d="m14 4-4 16"/></svg>API</a>
+      <a href="docs.html" title="Docs"><svg class="ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"/><path d="M14 4v5h5"/><path d="M8 13h8M8 17h6"/></svg>Docs</a>
+    </nav>
+  </div>
+</header>
+
+<main class="frame">
+
+  <!-- ─────────────────────────────────────────── HERO ─────────────────────────────────────────── -->
+  <section class="hero" style="border-bottom:1px solid var(--rule)">
+    <div>
+      <div class="eyebrow">Issue 01 · Local-first remote terminal · v0.1.0</div>
+      <h1>
+        Terminal&nbsp;<span class="ital">punyamu</span>,
+        di mana&nbsp;saja
+        <span class="strike">— tanpa</span>
+        cloud.
+      </h1>
+      <p class="hero-lede">
+        Satu perintah CLI di laptop, satu QR code di HP, dan setiap pairing
+        harus kamu setujui sendiri dari mesin host. Tidak ada akun, tidak ada
+        broker, tidak ada data yang menumpang ke server orang lain.
+      </p>
+      <div class="hero-cta">
+        <a class="btn" href="#start"><span>Mulai dalam 60 detik</span><span class="arrow">→</span></a>
+        <a class="btn ghost" href="docs.html"><span>Baca dokumentasi</span><span class="arrow">↗</span></a>
+      </div>
+    </div>
+
+    <aside>
+      <div class="hero-meta">
+        <div>FILED UNDER · DEVTOOLS / SELF-HOSTED</div>
+        <div>RUNS ON · MACOS · LINUX · WSL</div>
+        <div>BUILT WITH · NODE 18+ · FASTIFY · XTERM.JS</div>
+        <div>LICENSE · MIT</div>
+      </div>
+
+      <div class="terminal" style="margin-top:24px">
+        <div><span class="prompt">~ ❯</span> <span class="cmd">npm start</span></div>
+        <div class="out">  Lawang started</div>
+        <div class="out">  Machine     : <span class="accent">your-machine</span></div>
+        <div class="out">  Local URL   : http://localhost:3999</div>
+        <div class="out">  Tunnel URL  : <span class="accent">https://soft-fern.trycloudflare.com</span></div>
+        <div class="out">  Pair URL    : <span class="warn">…/#/pair?token=k3X…</span></div>
+        <div class="out">  Token TTL   : 15 minutes</div>
+        <div class="out">─── Pairing request ──────────────</div>
+        <div class="out">  Device : <span class="accent">iPhone Safari</span></div>
+        <div><span class="prompt">?</span> <span class="cmd">Approve this device? [y/N]</span> <span class="cursor"></span></div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- ─────────────────────────────────────────── WHY ─────────────────────────────────────────── -->
+  <section id="why">
+    <div class="section-head">
+      <div>
+        <div class="section-num">§ 01 — RAISON D'ÊTRE</div>
+        <h2>Untuk yang nggak mau<br/><em>nitip terminal</em> ke cloud orang.</h2>
+      </div>
+      <p class="lede">
+        SSH dari HP ribet. Layanan remote-desktop minta akun, billing, dan
+        kadang ngirim trafik kamu ke region antah berantah. Lawang
+        kebalikannya — agent jalan di laptop kamu, izin di tangan kamu.
+      </p>
+    </div>
+
+    <div class="value-grid">
+      <div class="cell">
+        <span class="num">№ 01</span>
+        <h3>Approval di host, selalu.</h3>
+        <p>Setiap pairing harus dijawab <code class="mono">y</code> di terminal kamu sendiri. Trusted device opsional, dan bisa dicabut sewaktu-waktu.</p>
+      </div>
+      <div class="cell">
+        <span class="num">№ 02</span>
+        <h3>Token sekali pakai.</h3>
+        <p>Pairing token base64url 24-byte dengan TTL 15 menit, dihash SHA-256, dan langsung di-consume setelah approved. Tidak ada secret yang nempel di disk.</p>
+      </div>
+      <div class="cell">
+        <span class="num">№ 03</span>
+        <h3>Tunnel opsional.</h3>
+        <p>Auto-deteksi <code class="mono">cloudflared</code> kalau ada. Kalau tidak, ya cuma LAN. Pilihan ada di kamu, bukan di vendor.</p>
+      </div>
+      <div class="cell">
+        <span class="num">№ 04</span>
+        <h3>Sandbox keras.</h3>
+        <p>Path traversal ditolak di <code class="mono">resolveInside()</code>. File API & git API hidup di dalam root project yang kamu pilih, titik.</p>
+      </div>
+      <div class="cell">
+        <span class="num">№ 05</span>
+        <h3>Audit log lokal.</h3>
+        <p>JSONL append-only di <code class="mono">~/.lawang/audit.log</code>. Pairing, sesi, file write, git push — semua tercatat di mesin kamu.</p>
+      </div>
+      <div class="cell">
+        <span class="num">№ 06</span>
+        <h3>Mobile-first nyata.</h3>
+        <p>xterm.js + shortcut bar (ESC, TAB, ↑/↓, Ctrl-C) untuk jari, bukan mouse. File explorer dan Monaco editor jalan di Safari iOS.</p>
+      </div>
+      <div class="cell">
+        <span class="num">№ 07</span>
+        <h3>Reconnect tanpa kehilangan output.</h3>
+        <p>PTY tetap hidup ~5 menit setelah WebSocket putus. Saat client reconnect, output ring-buffer 256 KB di-replay otomatis. Refresh tab tidak membunuh <code class="mono">npm run dev</code>.</p>
+      </div>
+      <div class="cell">
+        <span class="num">№ 08</span>
+        <h3>Local sites proxy.</h3>
+        <p>Expose <code class="mono">localhost:3000</code>, <code class="mono">:5173</code>, dst. ke browser remote lewat <code class="mono">/proxy/&lt;port&gt;/</code>. Bisa allow-list per-port atau mode <code class="mono">--proxy open</code> untuk dev.</p>
+      </div>
+      <div class="cell">
+        <span class="num">№ 09</span>
+        <h3>Granular permissions.</h3>
+        <p>Saat approve, host pilih scope: <em>full</em>, <em>read-only</em>, atau <em>terminal-only</em>. Trusted device menyimpan scope yang sama untuk pairing berikutnya.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────────── HOW ─────────────────────────────────────────── -->
+  <section id="how">
+    <div class="section-head">
+      <div>
+        <div class="section-num">§ 02 — MEKANIKA</div>
+        <h2>Tiga gerakan,<br/>nol akun.</h2>
+      </div>
+      <p class="lede">
+        Dari install sampai shell di HP, semuanya tetap di mesinmu sendiri.
+        Tidak ada langkah yang minta email atau API key.
+      </p>
+    </div>
+
+    <div class="steps">
+      <article class="step">
+        <div class="stamp">01</div>
+        <h3><em>Nyalakan agent.</em></h3>
+        <p><code class="mono">npm start</code> di root project. Agent bind ke <code class="mono">:3999</code>, generate pairing token, render QR di terminal.</p>
+      </article>
+      <article class="step">
+        <div class="stamp">02</div>
+        <h3><em>Scan & request.</em></h3>
+        <p>Buka kamera HP di QR. Browser load <code class="mono">/#/pair?token=…</code>, kirim device fingerprint, masuk antrean approval.</p>
+      </article>
+      <article class="step">
+        <div class="stamp">03</div>
+        <h3><em>Approve, lalu shell.</em></h3>
+        <p>Jawab <code class="mono">y</code> di CLI. Token di-consume, session token diterbitkan, WebSocket ke <code class="mono">/ws/terminal</code> terbuka. Kamu sudah di shell.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────────── STACK ─────────────────────────────────────────── -->
+  <section id="stack">
+    <div class="section-head">
+      <div>
+        <div class="section-num">§ 03 — TECH STACK</div>
+        <h2>Boring tools,<br/><em>boundaries yang tegas.</em></h2>
+      </div>
+      <p class="lede">
+        Dipilih supaya bisa di-audit dengan mata sendiri. Tidak ada framework
+        ajaib, tidak ada layer abstraksi yang menyembunyikan apa yang lewat
+        kabel.
+      </p>
+    </div>
+
+    <div class="stack">
+      <div class="row head">
+        <div>№</div><div>Komponen</div><div>Peran</div><div>Versi</div>
+      </div>
+      <div class="row"><div class="idx">01</div><div class="name">Node.js</div><div class="desc">Runtime untuk agent, native PTY support via node-pty.</div><div class="ver">≥ 18.17</div></div>
+      <div class="row"><div class="idx">02</div><div class="name">Fastify</div><div class="desc">HTTP server. Body 16 MB cap, content-type parser custom untuk upload streaming.</div><div class="ver">4.28</div></div>
+      <div class="row"><div class="idx">03</div><div class="name">ws + node-pty</div><div class="desc">WebSocket pipe ke PTY shell (bash, zsh, atau pwsh).</div><div class="ver">8.18 / 1.0</div></div>
+      <div class="row"><div class="idx">04</div><div class="name">simple-git</div><div class="desc">Operasi git aman: status, diff, log, stage, commit, pull, push.</div><div class="ver">3.27</div></div>
+      <div class="row"><div class="idx">05</div><div class="name">commander + zod</div><div class="desc">CLI parser & body validation. Ada subcommand <span class="mono">start</span> dan <span class="mono">devices</span>.</div><div class="ver">12 / 3.23</div></div>
+      <div class="row"><div class="idx">06</div><div class="name">React + Vite</div><div class="desc">Web client SPA, Tailwind dengan tema gelap custom, hash router minimal.</div><div class="ver">18.3 / 5.4</div></div>
+      <div class="row"><div class="idx">07</div><div class="name">xterm.js</div><div class="desc">Terminal di browser. Addon <span class="mono">fit</span> + <span class="mono">web-links</span>.</div><div class="ver">5.5</div></div>
+      <div class="row"><div class="idx">08</div><div class="name">Monaco</div><div class="desc">Code editor untuk file panel. Bahasa auto-detect dari ekstensi.</div><div class="ver">0.52</div></div>
+      <div class="row"><div class="idx">09</div><div class="name">cloudflared</div><div class="desc">Opsional. Kalau ada di PATH, agent auto-spawn tunnel publik.</div><div class="ver">latest</div></div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────────── START ─────────────────────────────────────────── -->
+  <section id="start">
+    <div class="section-head">
+      <div>
+        <div class="section-num">§ 04 — QUICKSTART</div>
+        <h2>Dari nol ke shell,<br/><em>sekitar enam baris.</em></h2>
+      </div>
+      <p class="lede">
+        Asumsinya Node 18+ sudah ada. Install, build sekali, jalan, scan,
+        approve. Selesai.
+      </p>
+    </div>
+
+    <div class="slabs">
+      <article class="slab">
+        <h3>Mode produksi</h3>
+        <p>Build static asset web sekali, lalu tinggal <code class="mono">npm start</code>.</p>
+        <div class="terminal">
+<span class="prompt">~ ❯</span> <span class="cmd">cd ~/lawang</span>
+<span class="prompt">~ ❯</span> <span class="cmd">npm install</span>
+<span class="prompt">~ ❯</span> <span class="cmd">npm run build</span>
+<span class="prompt">~ ❯</span> <span class="cmd">npm start</span>
+<span class="out">  Pair URL : </span><span class="accent">…/#/pair?token=…</span>
+<span class="out">  scan, approve, masuk shell.</span>
+        </div>
+      </article>
+
+      <article class="slab">
+        <h3>Mode developer</h3>
+        <p>Dua proses paralel. Vite proxy <code class="mono">/api</code> & <code class="mono">/ws</code> ke agent.</p>
+        <div class="terminal">
+<span class="out"># terminal 1</span>
+<span class="prompt">~ ❯</span> <span class="cmd">npm run dev:agent</span>
+
+<span class="out"># terminal 2</span>
+<span class="prompt">~ ❯</span> <span class="cmd">npm run dev:web</span>
+<span class="out">  open http://localhost:5173</span>
+        </div>
+      </article>
+    </div>
+
+    <div style="margin-top:48px; display:grid; grid-template-columns: 7fr 5fr; gap: var(--gutter); align-items: start;">
+      <div>
+        <div class="section-num">§ 04.1 — FLAGS</div>
+        <h3 style="margin: 12px 0 18px; font-style: italic;">Sentuhan terakhir.</h3>
+        <p style="color: var(--ink-soft); max-width: 56ch;">
+          CLI <code class="mono">lawang start</code> punya flags untuk port, root project, TTL token,
+          idle timeout, dan ukuran QR. Subcommand <code class="mono">lawang devices</code> untuk list
+          atau revoke trusted device kapan pun.
+        </p>
+      </div>
+      <div class="terminal">
+<span class="prompt">~ ❯</span> <span class="cmd">lawang start \</span>
+<span class="cmd">    --port 4100 \</span>
+<span class="cmd">    --root ~/projects/myapp \</span>
+<span class="cmd">    --no-tunnel \</span>
+<span class="cmd">    --token-ttl 30</span>
+
+<span class="prompt">~ ❯</span> <span class="cmd">lawang devices --revoke 1a2b3c4d</span>
+<span class="ok">  ✓ Revoked: iPhone Safari (1a2b3c4d…)</span>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ─────────────────────────────────────────── FAQ ─────────────────────────────────────────── -->
+  <section id="faq">
+    <div class="section-head">
+      <div>
+        <div class="section-num">§ 05 — FAQ</div>
+        <h2>Tanya yang biasa<br/><em>ditanyakan duluan.</em></h2>
+      </div>
+      <p class="lede">
+        Pertanyaan jujur, jawaban jujur. Termasuk yang tidak bisa dilakukan
+        oleh Lawang.
+      </p>
+    </div>
+
+    <div class="faq">
+      <details>
+        <summary>Apakah laptop saya tetap bisa diakses kalau sleep atau mati?</summary>
+        <div class="answer">
+          <p>Tidak. Kalau laptop benar-benar sleep atau shutdown, tidak ada proses yang bisa listen. Itu batas hardware/OS, bukan batas aplikasi.</p>
+          <p>Yang bisa: jalankan dengan <code>--keep-awake</code> supaya OS tidak sleep selama agent hidup, atau host agent di mesin yang memang dirancang selalu hidup (Raspberry Pi, NAS, VPS).</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Bagaimana kalau HP saya mati setelah sukses pairing?</summary>
+        <div class="answer">
+          <p>Active sessions otomatis 0, dan pairing token sudah consumed (one-time). Solusinya: jalankan <code>lawang rotate</code> di mesin host. Token baru di-issue tanpa perlu restart agent. Halaman <code>/qr</code> auto-refresh tiap 5 detik, jadi tinggal scan ulang.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Data saya nyangkut di server cloud kalian?</summary>
+        <div class="answer">
+          <p>Tidak ada. Repo ini local-first. Audit log, config, dan trusted devices semua di <code>~/.lawang/</code> di mesin kamu. Tunnel cloudflared cuma transport, isinya tidak disimpan di mereka. Kalau pakai <code>--no-tunnel</code>, data malah tidak pernah keluar LAN.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Seberapa aman pairing token-nya?</summary>
+        <div class="answer">
+          <p>Token random 24-byte base64url, hash SHA-256, TTL 15 menit, one-time. Kalau approved → di-consume; kalau gagal → expired. Pairing endpoint rate-limited 20/menit per IP. WebSocket terminal cek Origin header dan tolak frame &gt; 64 KB.</p>
+          <p>Run <code>lawang verify</code> kapan saja untuk smoke-test hard rules ini.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Saya bisa pakai vim atau htop di tab Chat?</summary>
+        <div class="answer">
+          <p>Tidak. Tab Chat pakai one-shot exec, tidak ada PTY interaktif. UI mendeteksi command interaktif dan menyarankan pindah ke tab Terminal yang memang pakai <code>node-pty</code> + xterm.js.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Bisa di-host di Raspberry Pi / VPS?</summary>
+        <div class="answer">
+          <p>Bisa. Code identik. Install Node 18+, clone repo, <code>npm install</code>, <code>npm run build</code>, lalu <code>npm start</code>. Akses tetap via cloudflared tunnel, tidak butuh konfigurasi tambahan. Power features otomatis adapt ke Linux (<code>systemctl</code>).</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Windows kapan?</summary>
+        <div class="answer">
+          <p>Code mendukung Windows secara teori (<code>node-pty</code>, deteksi platform). Tapi belum ada smoke test penuh. Power actions di Windows belum ditambahkan karena UAC bikin banyak edge case. Kontribusi welcome.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Saya kontribusi bagaimana?</summary>
+        <div class="answer">
+          <p>Repo MIT, fork &amp; PR. Mulai dari issue kecil dulu — Windows compat test, FAQ tambahan, atau dokumentasi. Untuk fitur besar (remote desktop, multi-host), buka diskusi dulu sesuai roadmap di <code>prd_remote_access_app.md</code>.</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="frame colophon">
+    <div>
+      <div class="section-num">§ COLOPHON</div>
+      <div class="marque"><em>lawang</em></div>
+      <p style="color: var(--ink-soft); max-width: 50ch; margin-top: 16px;">
+        Set in Fraunces &amp; JetBrains Mono. Dicetak di kertas digital warna
+        cream <code class="mono">#efe9d9</code>. Dibuat untuk mereka yang masih
+        percaya pada lokal sebagai standar, bukan pengecualian.
+      </p>
+    </div>
+    <div style="display: grid; gap: 8px;">
+      <div>REPO · <a href="https://github.com" target="_blank" rel="noopener">github.com/your/lawang</a></div>
+      <div>DOCS · <a href="docs.html">/docs</a></div>
+      <div>PRD &nbsp;· <a href="../prd_remote_access_app.md">prd_remote_access_app.md</a></div>
+      <div style="margin-top: 24px;">© 2026 — MIT License</div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
