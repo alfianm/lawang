@@ -23,6 +23,11 @@ import { readSessionHistory, queryEvents, eventTypeCounts } from "./lib/auditRea
 import { runOneShot, ExecError } from "./lib/exec";
 import { performPowerAction, powerCapabilities, PowerError, PowerAction } from "./lib/power";
 import { readBattery } from "./lib/battery";
+import { captureDesktopJpeg, desktopCapabilities, DesktopError, performDesktopInput } from "./lib/desktop";
+import {
+  listSnippets, createSnippet, updateSnippet, deleteSnippet,
+  recordUsage, exportSnippets, importSnippets, SnippetError,
+} from "./lib/snippets";
 import { Permission, SessionInfo } from "./lib/tokens";
 import { TrustedDeviceStore } from "./lib/trustedDevices";
 import {
@@ -46,6 +51,7 @@ interface AgentDeps {
   publicDir: string | null;
   getTunnelUrl: () => string | null;
   getPairUrl: () => string;
+  rotatePairing?: () => Promise<{ pairUrl: string; token: string; expiresAt: number }>;
 }
 
 export interface AgentServer {
@@ -80,6 +86,7 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
   const pairLimiter = new RateLimiter(60_000, 20);
   const fileLimiter = new RateLimiter(60_000, 240);
   const writeLimiter = new RateLimiter(60_000, 60);
+  const desktopLimiter = new RateLimiter(60_000, 600);
 
 
   // Bypass body parsing for raw uploads so req.raw can be piped into a file.
@@ -661,6 +668,79 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
     }
   });
 
+  // ---- Remote desktop ----
+
+  fastify.get("/api/desktop/capabilities", async (req, reply) => {
+    if (!fileLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "screen:view");
+    if (!session) return;
+    return desktopCapabilities();
+  });
+
+  fastify.get("/api/desktop/screenshot", async (req, reply) => {
+    if (!desktopLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "screen:view");
+    if (!session) return;
+    try {
+      const shot = await captureDesktopJpeg();
+      reply.header("Cache-Control", "no-store");
+      reply.header("X-Captured-At", new Date().toISOString());
+      reply.type(shot.mime).send(shot.buffer);
+    } catch (err) {
+      handleDesktopError(reply, err);
+    }
+  });
+
+  const DesktopInputBody = z.discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("mouse_move"),
+      x: z.number().min(0).max(1),
+      y: z.number().min(0).max(1),
+    }),
+    z.object({
+      kind: z.literal("mouse_click"),
+      x: z.number().min(0).max(1),
+      y: z.number().min(0).max(1),
+      button: z.enum(["left", "right", "middle"]).optional(),
+      double: z.boolean().optional(),
+    }),
+    z.object({
+      kind: z.literal("key"),
+      key: z.string().min(1).max(32),
+      shift: z.boolean().optional(),
+      ctrl: z.boolean().optional(),
+      alt: z.boolean().optional(),
+      meta: z.boolean().optional(),
+    }),
+    z.object({
+      kind: z.literal("text"),
+      text: z.string().min(1).max(500),
+    }),
+  ]);
+
+  fastify.post("/api/desktop/input", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "screen:control");
+    if (!session) return;
+    const parsed = DesktopInputBody.safeParse(req.body ?? {});
+    if (!parsed.success) { reply.code(400).send({ status: "invalid_request" }); return; }
+    try {
+      const out = await performDesktopInput(parsed.data);
+      recordEvent("desktop_control", {
+        deviceName: session.deviceName,
+        metadata: {
+          sessionId: session.sessionId,
+          kind: parsed.data.kind,
+          button: parsed.data.kind === "mouse_click" ? parsed.data.button || "left" : undefined,
+          double: parsed.data.kind === "mouse_click" ? Boolean(parsed.data.double) : undefined,
+        },
+      });
+      return out;
+    } catch (err) {
+      handleDesktopError(reply, err);
+    }
+  });
+
   // ---- Audit log viewer ----
 
   fastify.get("/api/audit", async (req, reply) => {
@@ -779,6 +859,141 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
     done();
   });
 
+  // ─── Snippets ───────────────────────────────────────────────────────
+
+  fastify.get("/api/snippets", async (req, reply) => {
+    if (!fileLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    return { snippets: await listSnippets() };
+  });
+
+  const SnippetCreate = z.object({
+    label: z.string().min(1).max(80),
+    command: z.string().min(1).max(4000),
+    cwd: z.string().max(1024).optional(),
+    description: z.string().max(500).optional(),
+    tags: z.array(z.string().max(40)).max(8).optional(),
+  });
+
+  fastify.post("/api/snippets", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const parsed = SnippetCreate.safeParse(req.body ?? {});
+    if (!parsed.success) { reply.code(400).send({ status: "invalid_request" }); return; }
+    try {
+      const snippet = await createSnippet(parsed.data);
+      recordEvent("snippet_created", {
+        deviceName: session.deviceName,
+        metadata: { sessionId: session.sessionId, snippetId: snippet.id, label: snippet.label },
+      });
+      return snippet;
+    } catch (err) {
+      handleSnippetError(reply, err);
+    }
+  });
+
+  const SnippetPatch = z.object({
+    label: z.string().min(1).max(80).optional(),
+    command: z.string().min(1).max(4000).optional(),
+    cwd: z.string().max(1024).optional(),
+    description: z.string().max(500).optional(),
+    tags: z.array(z.string().max(40)).max(8).optional(),
+  });
+
+  fastify.patch("/api/snippets/:id", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const id = String((req.params as { id: string }).id || "");
+    const parsed = SnippetPatch.safeParse(req.body ?? {});
+    if (!parsed.success) { reply.code(400).send({ status: "invalid_request" }); return; }
+    try {
+      const snippet = await updateSnippet(id, parsed.data);
+      recordEvent("snippet_updated", {
+        deviceName: session.deviceName,
+        metadata: { sessionId: session.sessionId, snippetId: id },
+      });
+      return snippet;
+    } catch (err) {
+      handleSnippetError(reply, err);
+    }
+  });
+
+  fastify.delete("/api/snippets/:id", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const id = String((req.params as { id: string }).id || "");
+    try {
+      await deleteSnippet(id);
+      recordEvent("snippet_deleted", {
+        deviceName: session.deviceName,
+        metadata: { sessionId: session.sessionId, snippetId: id },
+      });
+      return { status: "ok" };
+    } catch (err) {
+      handleSnippetError(reply, err);
+    }
+  });
+
+  fastify.post("/api/snippets/:id/use", async (req, reply) => {
+    if (!fileLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const id = String((req.params as { id: string }).id || "");
+    await recordUsage(id);
+    recordEvent("snippet_used", {
+      deviceName: session.deviceName,
+      metadata: { sessionId: session.sessionId, snippetId: id },
+    });
+    return { status: "ok" };
+  });
+
+  fastify.get("/api/snippets/export", async (req, reply) => {
+    if (!fileLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    return await exportSnippets();
+  });
+
+  const SnippetImport = z.object({
+    file: z.unknown(),
+    mode: z.enum(["merge", "replace"]).default("merge"),
+  });
+
+  fastify.post("/api/snippets/import", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const parsed = SnippetImport.safeParse(req.body ?? {});
+    if (!parsed.success) { reply.code(400).send({ status: "invalid_request" }); return; }
+    try {
+      const result = await importSnippets(parsed.data.file, parsed.data.mode);
+      return { status: "ok", ...result };
+    } catch (err) {
+      handleSnippetError(reply, err);
+    }
+  });
+
+  fastify.post("/api/control/rotate", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    if (!deps.rotatePairing) {
+      reply.code(503).send({ status: "rotate_not_supported" });
+      return;
+    }
+    try {
+      const out = await deps.rotatePairing();
+      log.info(`Pairing token rotated by session ${session.sessionId.slice(0, 8)}`);
+      return out;
+    } catch (err) {
+      reply.code(500).send({ status: "error", message: (err as Error).message });
+    }
+  });
+
   // SPA fallback
   if (deps.publicDir && fs.existsSync(deps.publicDir)) {
     fastify.setNotFoundHandler((req, reply) => {
@@ -829,6 +1044,16 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
   };
 }
 
+function handleSnippetError(reply: FastifyReply, err: unknown) {
+  if (err instanceof SnippetError) {
+    if (err.code === "not_found") reply.code(404).send({ status: "not_found" });
+    else if (err.code === "duplicate_label") reply.code(409).send({ status: "conflict", reason: "duplicate_label" });
+    else reply.code(400).send({ status: "invalid_request", reason: err.code });
+    return;
+  }
+  reply.code(500).send({ status: "error", message: (err as Error).message });
+}
+
 function handleSandboxError(reply: FastifyReply, err: unknown) {
   if (err instanceof SandboxError) {
     if (err.code === "outside_root") reply.code(403).send({ status: "forbidden", reason: err.code });
@@ -847,6 +1072,16 @@ function handleGitError(reply: FastifyReply, err: unknown) {
     if (err.code === "not_a_repo") reply.code(409).send({ status: "not_a_repo" });
     else if (err.code === "invalid_input") reply.code(400).send({ status: "invalid_request" });
     else reply.code(500).send({ status: "git_failed", message: err.message });
+    return;
+  }
+  reply.code(500).send({ status: "error", message: (err as Error).message });
+}
+
+function handleDesktopError(reply: FastifyReply, err: unknown) {
+  if (err instanceof DesktopError) {
+    if (err.code === "unsupported") reply.code(501).send({ status: "unsupported", message: err.message });
+    else if (err.code === "invalid_input") reply.code(400).send({ status: "invalid_request", message: err.message });
+    else reply.code(500).send({ status: err.code, message: err.message });
     return;
   }
   reply.code(500).send({ status: "error", message: (err as Error).message });

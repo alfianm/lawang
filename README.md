@@ -13,6 +13,7 @@ Local-first remote terminal for your own machine. Run a single command, scan a Q
 - Reconnect-safe terminal: PTY tetap hidup ~5 menit saat WS putus, output ter-replay otomatis.
 - File explorer + Monaco editor (read/write, upload, rename, delete, mkdir).
 - Git panel (status, diff, log, stage, commit, pull, push).
+- Remote desktop awal: screen view + mouse/keyboard control untuk host macOS.
 - Local sites proxy: expose `localhost:3000`, `:5173`, dst. lewat `/proxy/<port>/...`.
 - Audit log viewer di web (filter per kategori + search) selain file `audit.log` di disk.
 - Tunnel publik opsional via `cloudflared` (auto-detect).
@@ -57,11 +58,11 @@ lawang ping                    # cek agent jalan
 
 ## Posisi vs alternatif
 
-Project sejenis seperti `9remote` punya remote desktop, dashboard cloud, dan
-aplikasi mobile native. Kita tidak. Yang kita prioritaskan: **local-first,
-open source, transparan**. Tidak ada broker cloud, tidak ada akun, audit log
-disimpan lokal dalam JSONL yang mudah dibaca. Cocok kalau kamu ingin
-self-host dan paham apa yang berjalan di mesin sendiri.
+Project sejenis seperti `9remote` punya dashboard cloud dan aplikasi mobile
+native. Kita prioritaskan: **local-first, open source, transparan**. Remote
+desktop sudah ada sebagai fitur awal untuk host macOS, tetap tanpa broker cloud,
+tanpa akun, dan audit log disimpan lokal dalam JSONL yang mudah dibaca. Cocok
+kalau kamu ingin self-host dan paham apa yang berjalan di mesin sendiri.
 
 ## Dokumentasi
 
@@ -90,7 +91,7 @@ site/           — landing page + docs static (HTML/CSS/SVG)
 
 ## Roadmap
 
-Milestone berikutnya (file explorer lanjutan, remote desktop research, dll) ada di `prd_remote_access_app.md`. Intentionally out of scope untuk v0.1.
+Milestone berikutnya (file explorer lanjutan, remote desktop multi-OS/WebRTC, dll) ada di `prd_remote_access_app.md`.
 
 ## License
 

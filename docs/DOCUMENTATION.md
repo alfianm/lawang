@@ -27,11 +27,12 @@ Fitur MVP yang sudah jalan:
 - Terminal berbasis xterm.js dengan shortcut bar untuk mobile.
 - File explorer + Monaco editor (read/write, upload, rename, delete, mkdir).
 - Git panel (status, diff, log, stage, commit, pull, push).
+- Remote desktop awal untuk host macOS: screen view, mouse click/move, keyboard, dan text input.
 - Tunnel opsional via `cloudflared` (auto-detect kalau terpasang).
 - Trusted devices (auto-approve) dan audit log lokal di `~/.lawang/audit.log`.
 - Control socket lokal (`~/.lawang/agent.sock`) untuk operasi admin di luar HTTP.
 
-Roadmap berikutnya (file explorer lanjutan, remote desktop, dll) ada di
+Roadmap berikutnya (file explorer lanjutan, remote desktop multi-OS/WebRTC, dll) ada di
 `prd_remote_access_app.md`.
 
 ---
@@ -228,6 +229,12 @@ Semua endpoint kecuali yang ditandai publik membutuhkan header
 - `GET /api/system/power` — kapabilitas sleep/shutdown per platform (`darwin`, `linux`).
 - `POST /api/system/power` — body `{ action: "sleep" | "shutdown" | "reboot" | "lock", confirm: true, delaySeconds? }`. Trigger di host: macOS pakai `pmset` / `osascript`, Linux pakai `systemctl` (suspend|poweroff|reboot) atau `loginctl lock-session`. `lock` tidak butuh delay. Butuh permission `terminal`. Audit event: `power_action`.
 - `GET /api/system/battery` — info baterai host: percent, charging, acConnected, state, timeRemainingMin. Sumber `pmset` (macOS) atau sysfs `/sys/class/power_supply` (Linux).
+
+**Remote desktop**
+- `GET /api/desktop/capabilities` — kapabilitas screen view/control host. Saat ini implementasi runtime hanya macOS.
+- `GET /api/desktop/screenshot` — mengambil frame JPEG terbaru dari host. Butuh permission `screen:view`.
+- `POST /api/desktop/input` — kirim input remote desktop. Body mendukung `{ kind: "mouse_move", x, y }`, `{ kind: "mouse_click", x, y, button?, double? }`, `{ kind: "key", key, shift?, ctrl?, alt?, meta? }`, dan `{ kind: "text", text }`. Koordinat `x/y` normalisasi `0..1`. Butuh permission `screen:control`. Audit event: `desktop_control`.
+- macOS perlu izin **Screen Recording** untuk melihat layar dan **Accessibility** untuk mouse/keyboard pada terminal app yang menjalankan Lawang.
 
 **File API**
 - `GET /api/files?path=<rel>` — list direktori.

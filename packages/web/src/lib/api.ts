@@ -138,6 +138,18 @@ export interface VersionInfo {
   checkedAt: string | null;
 }
 
+export async function rotatePairingViaApi(token: string): Promise<{ pairUrl: string; token: string; expiresAt: number }> {
+  const r = await fetch("/api/control/rotate", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: "{}",
+  });
+  if (r.status === 401 || r.status === 403) throw new AuthError(r.status);
+  if (r.status === 503) throw new Error("rotate_not_supported");
+  if (!r.ok) throw new Error(`http_${r.status}`);
+  return await r.json();
+}
+
 export async function fetchVersion(): Promise<VersionInfo> {
   // Public endpoint, no auth required.
   const r = await fetch("/api/version", { cache: "no-store" });
@@ -147,6 +159,84 @@ export async function fetchVersion(): Promise<VersionInfo> {
 
 export function fetchEnvironment(token: string) {
   return authedJson<EnvironmentResponse>(token, "/api/env");
+}
+
+export interface Snippet {
+  id: string;
+  label: string;
+  command: string;
+  cwd?: string;
+  description?: string;
+  tags?: string[];
+  createdAt: string;
+  updatedAt: string;
+  lastUsedAt: string | null;
+  usageCount: number;
+}
+
+export function listSnippets(token: string): Promise<{ snippets: Snippet[] }> {
+  return authedJson<{ snippets: Snippet[] }>(token, "/api/snippets");
+}
+
+export async function createSnippet(token: string, input: {
+  label: string; command: string; cwd?: string; description?: string; tags?: string[];
+}): Promise<Snippet> {
+  const r = await fetch("/api/snippets", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(input),
+  });
+  if (r.status === 401 || r.status === 403) throw new AuthError(r.status);
+  if (r.status === 409) throw new Error("duplicate_label");
+  if (!r.ok) throw new Error(`http_${r.status}`);
+  return await r.json();
+}
+
+export async function updateSnippet(token: string, id: string, patch: {
+  label?: string; command?: string; cwd?: string; description?: string; tags?: string[];
+}): Promise<Snippet> {
+  const r = await fetch(`/api/snippets/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(patch),
+  });
+  if (r.status === 401 || r.status === 403) throw new AuthError(r.status);
+  if (r.status === 409) throw new Error("duplicate_label");
+  if (!r.ok) throw new Error(`http_${r.status}`);
+  return await r.json();
+}
+
+export async function deleteSnippet(token: string, id: string): Promise<void> {
+  const r = await fetch(`/api/snippets/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (r.status === 401 || r.status === 403) throw new AuthError(r.status);
+  if (!r.ok) throw new Error(`http_${r.status}`);
+}
+
+export async function recordSnippetUsage(token: string, id: string): Promise<void> {
+  const r = await fetch(`/api/snippets/${encodeURIComponent(id)}/use`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+  if (r.status === 401 || r.status === 403) throw new AuthError(r.status);
+  // ignore non-fatal failures
+}
+
+export async function exportSnippets(token: string): Promise<{ version: 1; snippets: Snippet[] }> {
+  return authedJson<{ version: 1; snippets: Snippet[] }>(token, "/api/snippets/export");
+}
+
+export async function importSnippets(token: string, file: unknown, mode: "merge" | "replace" = "merge"): Promise<{ status: string; imported: number; skipped: number }> {
+  const r = await fetch("/api/snippets/import", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ file, mode }),
+  });
+  if (r.status === 401 || r.status === 403) throw new AuthError(r.status);
+  if (!r.ok) throw new Error(`http_${r.status}`);
+  return await r.json();
 }
 
 export interface ExecResult {
@@ -187,6 +277,58 @@ export function fetchBattery(token: string): Promise<BatteryInfo> {
 
 export function fetchPowerCapabilities(token: string): Promise<PowerCapabilities> {
   return authedJson<PowerCapabilities>(token, "/api/system/power");
+}
+
+export interface DesktopCapability {
+  supported: boolean;
+  provider: string;
+  reason?: string;
+}
+
+export interface DesktopCapabilities {
+  platform: string;
+  view: DesktopCapability;
+  control: DesktopCapability;
+}
+
+export type DesktopInput =
+  | { kind: "mouse_move"; x: number; y: number }
+  | { kind: "mouse_click"; x: number; y: number; button?: "left" | "right" | "middle"; double?: boolean }
+  | { kind: "key"; key: string; shift?: boolean; ctrl?: boolean; alt?: boolean; meta?: boolean }
+  | { kind: "text"; text: string };
+
+export function fetchDesktopCapabilities(token: string): Promise<DesktopCapabilities> {
+  return authedJson<DesktopCapabilities>(token, "/api/desktop/capabilities");
+}
+
+export async function fetchDesktopScreenshot(token: string): Promise<{ url: string; capturedAt: string | null }> {
+  const r = await fetch(`/api/desktop/screenshot?t=${Date.now()}`, {
+    headers: authHeaders(token),
+    cache: "no-store",
+  });
+  if (r.status === 401 || r.status === 403) throw new AuthError(r.status);
+  if (!r.ok) {
+    const body = await r.text();
+    throw new Error(`http_${r.status}:${body.slice(0, 160)}`);
+  }
+  const blob = await r.blob();
+  return {
+    url: URL.createObjectURL(blob),
+    capturedAt: r.headers.get("x-captured-at"),
+  };
+}
+
+export async function sendDesktopInput(token: string, input: DesktopInput): Promise<void> {
+  const r = await fetch("/api/desktop/input", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(input),
+  });
+  if (r.status === 401 || r.status === 403) throw new AuthError(r.status);
+  if (!r.ok) {
+    const body = await r.text();
+    throw new Error(`http_${r.status}:${body.slice(0, 160)}`);
+  }
 }
 
 export async function performPower(token: string, action: PowerAction, delaySeconds = 5): Promise<{ status: string; action: PowerAction; delaySeconds: number; willHappenAt: string }> {

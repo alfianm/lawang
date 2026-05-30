@@ -7,8 +7,8 @@ type Decision = "approved" | "rejected";
 export type PermissionPreset = "full" | "files" | "terminal";
 
 const PRESET_PERMISSIONS: Record<PermissionPreset, Permission[]> = {
-  full: ["terminal", "file:read", "file:write", "git:read", "git:write"],
-  files: ["terminal", "file:read", "git:read"],
+  full: ["terminal", "file:read", "file:write", "git:read", "git:write", "screen:view", "screen:control"],
+  files: ["terminal", "file:read", "git:read", "screen:view"],
   terminal: ["terminal"],
 };
 
@@ -69,8 +69,8 @@ export function askApproval(
           process.stdout.write([
             "",
             log.paint("dim", "  Permission scope:"),
-            "    1) Full access  — terminal + files (rw) + git (rw)  [default]",
-            "    2) Read-only    — terminal + file:read + git:read",
+            "    1) Full access  — terminal + files (rw) + git (rw) + desktop control  [default]",
+            "    2) Read-only    — terminal + file:read + git:read + desktop view",
             "    3) Terminal     — only shell access",
             "",
           ].join("\n"));

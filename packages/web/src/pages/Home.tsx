@@ -56,6 +56,13 @@ export function HomePage() {
           <span className="hidden sm:inline font-mono text-xs text-ink truncate max-w-[200px]">
             {info?.machineName ?? "—"}
           </span>
+          <a
+            href="#/hosts"
+            className="ml-2 inline-flex items-center gap-1 text-[11px] font-mono text-muted hover:text-accent border border-line rounded px-2 py-0.5"
+            title="Switch host"
+          >
+            hosts
+          </a>
         </div>
         <div className="flex items-center gap-2 text-[11px] font-mono">
           <StatusPill status={status} />

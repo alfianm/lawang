@@ -1,6 +1,13 @@
 import crypto from "node:crypto";
 
-export type Permission = "terminal" | "file:read" | "file:write" | "git:read" | "git:write";
+export type Permission =
+  | "terminal"
+  | "file:read"
+  | "file:write"
+  | "git:read"
+  | "git:write"
+  | "screen:view"
+  | "screen:control";
 
 export interface PairingToken {
   tokenId: string;

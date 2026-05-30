@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Terminal as TerminalIcon, FolderOpen, GitBranch, Power, Wifi, WifiOff, Globe, ScrollText } from "lucide-react";
+import { Terminal as TerminalIcon, FolderOpen, GitBranch, Power, Wifi, WifiOff, Globe, ScrollText, Monitor } from "lucide-react";
 import { TerminalPanel } from "../components/TerminalPanel";
 import { FilesPanel } from "../components/FilesPanel";
 import { GitPanel } from "../components/GitPanel";
+import { DesktopPanel } from "../components/DesktopPanel";
 import { ProxyPanel } from "../components/ProxyPanel";
 import { AuditPanel } from "../components/AuditPanel";
 import { SessionMeta } from "../components/SessionMeta";
@@ -10,22 +11,47 @@ import { ChatPanel } from "../components/ChatPanel";
 import { PowerMenu } from "../components/PowerMenu";
 import { BatteryIndicator } from "../components/BatteryIndicator";
 import { UpdateBanner } from "../components/UpdateBanner";
+import { CommandPalette, buildStaticActions } from "../components/CommandPalette";
+import { rotatePairingViaApi } from "../lib/api";
+import { HostSwitcher } from "../components/HostSwitcher";
+import { rememberCurrentHost } from "../lib/hosts";
+import { invalidatePaletteCache } from "../lib/paletteData";
 import { MessageSquare } from "lucide-react";
 import { fetchSession, SessionInfoResponse } from "../lib/api";
 
 export function SessionPage(props: {
   sessionToken: string;
-  tab: "terminal" | "files" | "git" | "chat" | "proxy" | "audit";
-  onTabChange: (tab: "terminal" | "files" | "git" | "chat" | "proxy" | "audit") => void;
+  tab: "terminal" | "files" | "git" | "desktop" | "chat" | "proxy" | "audit";
+  onTabChange: (tab: "terminal" | "files" | "git" | "desktop" | "chat" | "proxy" | "audit") => void;
   onDisconnected: () => void;
 }) {
   const [info, setInfo] = useState<SessionInfoResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const isMac = navigator.platform.toLowerCase().includes("mac");
+      const triggered = isMac
+        ? (e.metaKey && e.key.toLowerCase() === "k")
+        : (e.ctrlKey && e.key.toLowerCase() === "k");
+      if (triggered) {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     fetchSession(props.sessionToken)
-      .then((s) => { if (!cancelled) setInfo(s); })
+      .then((s) => {
+        if (cancelled) return;
+        setInfo(s);
+        try { rememberCurrentHost({ machineName: s.machineName }); } catch { /* ignore */ }
+      })
       .catch(() => {
         if (cancelled) return;
         setError("Session expired or revoked.");
@@ -51,6 +77,10 @@ export function SessionPage(props: {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <HostSwitcher
+            currentName={info?.machineName ?? null}
+            onOpenManage={() => { window.location.hash = "/hosts"; }}
+          />
           <SessionMeta sessionToken={props.sessionToken} onAuthFailed={handleEndSession} />
           {info && info.permissions && (
             <span
@@ -102,6 +132,11 @@ export function SessionPage(props: {
             Git
           </TabButton>
         )}
+        {hasPerm(info, "screen:view") && (
+          <TabButton active={props.tab === "desktop"} onClick={() => props.onTabChange("desktop")} icon={<Monitor className="w-4 h-4" />}>
+            Desktop
+          </TabButton>
+        )}
         {hasPerm(info, "file:write") && (
           <TabButton active={props.tab === "proxy"} onClick={() => props.onTabChange("proxy")} icon={<Globe className="w-4 h-4" />}>
             Proxy
@@ -132,6 +167,15 @@ export function SessionPage(props: {
             <GitPanel sessionToken={props.sessionToken} onAuthFailed={handleEndSession} />
           </div>
         )}
+        {props.tab === "desktop" && (
+          <div className="h-full">
+            <DesktopPanel
+              sessionToken={props.sessionToken}
+              canControl={hasPerm(info, "screen:control")}
+              onAuthFailed={handleEndSession}
+            />
+          </div>
+        )}
         {props.tab === "proxy" && (
           <div className="h-full">
             <ProxyPanel sessionToken={props.sessionToken} onAuthFailed={handleEndSession} />
@@ -153,6 +197,24 @@ export function SessionPage(props: {
           </div>
         )}
       </div>
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        sessionToken={props.sessionToken}
+        actions={buildStaticActions({
+          goTo: (tab) => props.onTabChange(tab),
+          endSession: handleEndSession,
+          rotateToken: async () => {
+            try {
+              await rotatePairingViaApi(props.sessionToken);
+            } catch {
+              /* palette closes regardless */
+            }
+            invalidatePaletteCache();
+          },
+        })}
+      />
     </div>
   );
 }
@@ -173,7 +235,7 @@ function TabButton({ active, onClick, icon, children }: { active: boolean; onCli
 
 function scopeLabel(perms: string[]): string {
   const set = new Set(perms);
-  if (set.has("file:write") && set.has("git:write")) return "full";
+  if (set.has("file:write") && set.has("git:write") && set.has("screen:control")) return "full";
   if (set.has("file:read") && !set.has("file:write")) return "read-only";
   if (set.has("terminal") && !set.has("file:read")) return "terminal";
   return "custom";

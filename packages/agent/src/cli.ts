@@ -110,6 +110,7 @@ program
       publicDir: fs.existsSync(publicDir) ? publicDir : null,
       getTunnelUrl: () => getTunnelUrl(),
       getPairUrl: () => currentPairUrl,
+      rotatePairing: () => rotateAndAnnouncePtr(true),
     });
 
     if (opts.tunnel) {

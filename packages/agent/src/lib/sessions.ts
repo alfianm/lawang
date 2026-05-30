@@ -23,7 +23,7 @@ export class SessionStore {
     const { token, hash: tokenHash } = newSessionToken();
     const permissions: Permission[] = opts.permissions && opts.permissions.length > 0
       ? [...new Set(opts.permissions)]
-      : ["terminal", "file:read", "file:write", "git:read", "git:write"];
+      : ["terminal", "file:read", "file:write", "git:read", "git:write", "screen:view", "screen:control"];
     const session: SessionInfo = {
       sessionId: crypto.randomUUID(),
       sessionTokenHash: tokenHash,

@@ -30,10 +30,15 @@ export type AuditEventType =
   | "git_unstage"
   | "chat_exec"
   | "power_action"
+  | "desktop_control"
   | "proxy_added"
   | "proxy_removed"
   | "proxy_forwarded"
-  | "terminal_resumed";
+  | "terminal_resumed"
+  | "snippet_created"
+  | "snippet_updated"
+  | "snippet_deleted"
+  | "snippet_used";
 
 export interface AuditEvent {
   eventId: string;

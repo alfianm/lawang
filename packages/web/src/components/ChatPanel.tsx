@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, FolderOpen, ChevronRight, Loader2, AlertTriangle, Clock, Check, Folder, X, RefreshCw, RotateCcw, Pencil, Copy, Terminal as TerminalIcon, Info } from "lucide-react";
+import { Send, FolderOpen, ChevronRight, Loader2, AlertTriangle, Clock, Check, Folder, X, RefreshCw, RotateCcw, Pencil, Copy, Terminal as TerminalIcon, Info, Bookmark } from "lucide-react";
+import { SnippetDrawer } from "./SnippetDrawer";
+import type { Snippet } from "../lib/api";
 import { execCommand, listFiles, AuthError, ExecResult, DirEntry } from "../lib/api";
 
 interface Props {
@@ -92,6 +94,7 @@ export function ChatPanel({ sessionToken, rootName, onAuthFailed, onSwitchToTerm
   const [historyCursor, setHistoryCursor] = useState(-1);
   const interactiveHint = useMemo(() => detectInteractive(input), [input]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [snippetsOpen, setSnippetsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -105,6 +108,17 @@ export function ChatPanel({ sessionToken, rootName, onAuthFailed, onSwitchToTerm
       sessionStorage.setItem("lawang:chat:log", JSON.stringify(trimmed));
     } catch { /* quota — ignore */ }
   }, [bubbles]);
+
+  useEffect(() => {
+    function onRun(e: Event) {
+      const detail = (e as CustomEvent).detail as { command?: string; cwd?: string } | null;
+      if (!detail?.command) return;
+      const targetCwd = detail.cwd && detail.cwd !== "." ? detail.cwd : cwd;
+      void send(detail.command, targetCwd);
+    }
+    window.addEventListener("lawang:run-snippet", onRun);
+    return () => window.removeEventListener("lawang:run-snippet", onRun);
+  }, [cwd, sessionToken]);
 
   // Auto-scroll to bottom on new bubble.
   useEffect(() => {
@@ -187,13 +201,22 @@ export function ChatPanel({ sessionToken, rootName, onAuthFailed, onSwitchToTerm
           </button>
           <Breadcrumb cwd={cwd} rootName={rootName} onPick={setCwd} />
         </div>
-        <button
-          className="text-[11px] text-muted hover:text-ink inline-flex items-center gap-1 border border-line rounded px-2 py-1"
-          onClick={clearLog}
-          title="Clear chat"
-        >
-          <RefreshCw className="w-3 h-3" /> clear
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            className="text-[11px] text-muted hover:text-ink inline-flex items-center gap-1 border border-line rounded px-2 py-1"
+            onClick={() => setSnippetsOpen(true)}
+            title="Snippets"
+          >
+            <Bookmark className="w-3 h-3" /> snippets
+          </button>
+          <button
+            className="text-[11px] text-muted hover:text-ink inline-flex items-center gap-1 border border-line rounded px-2 py-1"
+            onClick={clearLog}
+            title="Clear chat"
+          >
+            <RefreshCw className="w-3 h-3" /> clear
+          </button>
+        </div>
       </header>
 
       {pickerOpen && (
@@ -281,6 +304,19 @@ export function ChatPanel({ sessionToken, rootName, onAuthFailed, onSwitchToTerm
           <Send className="w-4 h-4" /> Send
         </button>
       </form>
+
+      {snippetsOpen && (
+        <SnippetDrawer
+          sessionToken={sessionToken}
+          onAuthFailed={onAuthFailed}
+          onClose={() => setSnippetsOpen(false)}
+          onUseSnippet={(snippet: Snippet) => {
+            setSnippetsOpen(false);
+            const targetCwd = snippet.cwd && snippet.cwd !== "." ? snippet.cwd : cwd;
+            void send(snippet.command, targetCwd);
+          }}
+        />
+      )}
     </div>
   );
 }

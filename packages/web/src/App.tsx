@@ -2,6 +2,7 @@ import { useRoute } from "./lib/router";
 import { HomePage } from "./pages/Home";
 import { PairPage } from "./pages/Pair";
 import { SessionPage } from "./pages/Session";
+import { HostsPage } from "./pages/Hosts";
 
 export function App() {
   const [route, navigate] = useRoute();
@@ -28,6 +29,9 @@ export function App() {
         onDisconnected={() => navigate({ name: "home" })}
       />
     );
+  }
+  if (route.name === "hosts") {
+    return <HostsPage onBack={() => navigate({ name: "home" })} />;
   }
   return <HomePage />;
 }

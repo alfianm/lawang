@@ -4,6 +4,33 @@ All notable changes to Lawang are documented here. Format follows [Keep a Change
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-05-26
+
+### Added
+- **Multi-host directory** (browser-side bookmark): switcher chip in the Session header lists every Lawang agent paired from this browser. Click to navigate to that origin. New `/#/hosts` page to add, rename, or forget hosts. Sessions remain scoped per origin (no cross-origin token sharing).
+- Auto-register the current host the first time you open a session.
+- **Session reattach**: PTY processes now survive WebSocket drops. The agent keeps each shell alive for up to 5 minutes after the client disconnects, with a 256 KB output ring buffer per session. When the client reconnects (phone wakes, network blip), the terminal screen replays the buffered output and resumes exactly where it was. Verified end-to-end with `terminal:replay` event + `[reconnected]` ANSI banner.
+- Auto-reconnect with exponential backoff (up to 6 attempts) in `TerminalPanel`.
+
+## [0.5.0] - 2026-05-26
+
+### Added
+- **Command palette** (`Cmd-K` / `Ctrl-K` from anywhere in the session): fuzzy search across navigation actions, session controls, and saved snippets. Run a snippet directly from the palette without opening the drawer.
+- REST `POST /api/control/rotate`: rotate the pairing token from the web UI (used by the palette's "Rotate pairing token" action).
+- 30-second client-side cache for snippet list inside the palette so opening it repeatedly does not hammer the server.
+
+## [0.4.0] - 2026-05-26
+
+### Added
+- **Snippet library**: save command kustom (`label`, `command`, `cwd`, `tags`, `description`) ke `~/.lawang/snippets.json`. Bookmark di Chat tab membuka drawer untuk list/search/create/edit/delete. Tap snippet → command langsung dijalankan dengan cwd yang disimpan.
+- REST endpoints: `GET /api/snippets`, `POST /api/snippets`, `PATCH /api/snippets/:id`, `DELETE /api/snippets/:id`, `POST /api/snippets/:id/use`, `GET /api/snippets/export`, `POST /api/snippets/import`.
+- Audit events: `snippet_created`, `snippet_updated`, `snippet_deleted`, `snippet_used`.
+
+## [0.3.0] - 2026-05-26
+
+### Added
+- (interim release published in parallel) Terminal session reattach groundwork (`terminalSessions.ts`) and local proxy module (`localProxy.ts`). See repo history for detail.
+
 ## [0.2.0] - 2026-05-26
 
 ### Added
