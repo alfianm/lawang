@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  LayoutDashboard,
   Search, Terminal as TerminalIcon, FolderOpen, GitBranch, MessageSquare,
   RefreshCw, History, Bookmark, Power, Moon, Lock, RotateCw, ArrowRight, Wifi, Monitor,
 } from "lucide-react";
+import type { Tab } from "../lib/router";
 import { fetchSnippets } from "../lib/paletteData";
 import type { Snippet } from "../lib/api";
 
@@ -207,12 +209,20 @@ function scoreItem(item: PaletteAction, q: string, qChars: string): number {
 /* ─────────── Static action factories ─────────── */
 
 export function buildStaticActions(opts: {
-  goTo: (tab: "terminal" | "files" | "git" | "desktop" | "chat" | "proxy" | "audit") => void;
+  goTo: (tab: Tab) => void;
   endSession: () => void;
   rotateToken: () => Promise<void>;
   openHostMenu?: () => void;
 }): PaletteAction[] {
   return [
+    {
+      id: "go:overview",
+      label: "Go to Overview",
+      group: "navigate",
+      icon: <LayoutDashboard className="w-3.5 h-3.5" />,
+      keywords: "dashboard home summary",
+      run: () => opts.goTo("overview"),
+    },
     {
       id: "go:terminal",
       label: "Go to Terminal",

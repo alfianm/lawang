@@ -10,6 +10,7 @@ export function PairPage(props: { token: string | null; onConnected: (sessionTok
   const [info, setInfo] = useState<AgentInfo | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [deviceName, setDeviceName] = useState<string>(detectDevice().name);
+  const [pairingPin, setPairingPin] = useState("");
   const [grantedPreset, setGrantedPreset] = useState<string | null>(null);
   const [grantedPermissions, setGrantedPermissions] = useState<string[] | null>(null);
   const startedRef = useRef(false);
@@ -25,6 +26,11 @@ export function PairPage(props: { token: string | null; onConnected: (sessionTok
       return;
     }
     if (startedRef.current) return;
+    if (info?.pairPinRequired && !pairingPin.trim()) {
+      setStatus("error");
+      setErrorText("Pairing PIN is required.");
+      return;
+    }
     startedRef.current = true;
     setStatus("submitting");
     try {
@@ -35,6 +41,7 @@ export function PairPage(props: { token: string | null; onConnected: (sessionTok
         deviceName: deviceName || detected.name,
         deviceType: detected.type,
         deviceFingerprint: getOrCreateDeviceFingerprint(),
+        pairingPin: pairingPin.trim() || undefined,
       });
       if (res.status === "approved") {
         setGrantedPreset(res.preset || null);
@@ -45,6 +52,16 @@ export function PairPage(props: { token: string | null; onConnected: (sessionTok
         setStatus("rate_limited");
       } else {
         if ((res as any).reason === "invalid_or_expired_token") setStatus("expired");
+        else if ((res as any).reason === "invalid_pairing_pin") {
+          setErrorText("Pairing PIN is incorrect.");
+          setStatus("error");
+        } else if ((res as any).reason === "pin_required") {
+          setErrorText("Pairing PIN is required.");
+          setStatus("error");
+        } else if ((res as any).reason === "pairing_network_denied") {
+          setErrorText("This host only accepts pairing from localhost or LAN/private addresses.");
+          setStatus("error");
+        }
         else setStatus("rejected");
       }
     } catch (err) {
@@ -82,6 +99,26 @@ export function PairPage(props: { token: string | null; onConnected: (sessionTok
               placeholder="iPhone Safari"
             />
           </label>
+          {info?.pairPinRequired && (
+            <label className="block">
+              <span className="text-xs text-muted">Pairing PIN</span>
+              <input
+                value={pairingPin}
+                onChange={(e) => setPairingPin(e.target.value)}
+                disabled={status !== "idle" && status !== "error"}
+                type="password"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                className="mt-1 w-full bg-bg border border-line rounded-md px-3 py-2 font-mono text-sm focus:outline-none focus:ring-1 focus:ring-accent/40"
+                placeholder="PIN from host"
+              />
+            </label>
+          )}
+          {info?.pairLanOnly && (
+            <div className="text-xs text-muted border border-line rounded-md px-3 py-2">
+              Pairing is limited to localhost or LAN/private network addresses.
+            </div>
+          )}
         </div>
 
         <div className="mt-5">

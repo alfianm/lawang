@@ -11,7 +11,7 @@ export function App() {
     return (
       <PairPage
         token={route.token}
-        onConnected={(t) => navigate({ name: "session", tab: "terminal", sessionToken: t })}
+        onConnected={(t) => navigate({ name: "session", tab: "overview", sessionToken: t })}
         onCancel={() => navigate({ name: "home" })}
       />
     );

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export type Tab = "terminal" | "files" | "git" | "desktop" | "chat" | "proxy" | "audit";
+export type Tab = "overview" | "terminal" | "files" | "git" | "desktop" | "chat" | "proxy" | "audit";
 export type Route =
   | { name: "home" }
   | { name: "pair"; token: string | null }
@@ -13,9 +13,10 @@ function parse(): Route {
   const params = new URLSearchParams(query || "");
   if (path === "pair") return { name: "pair", token: params.get("token") };
   if (path === "hosts") return { name: "hosts" };
-  if (path === "terminal" || path === "files" || path === "git" || path === "desktop" || path === "chat" || path === "proxy" || path === "audit" || path === "session") {
+  if (path === "overview" || path === "terminal" || path === "files" || path === "git" || path === "desktop" || path === "chat" || path === "proxy" || path === "audit" || path === "session") {
     const sessionToken = sessionStorage.getItem("lawang:session") || "";
     const tab: Tab =
+      path === "overview" || path === "session" ? "overview" :
       path === "files" ? "files" :
       path === "git" ? "git" :
       path === "desktop" ? "desktop" :

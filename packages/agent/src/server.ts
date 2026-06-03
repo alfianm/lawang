@@ -8,7 +8,8 @@ import QRCode from "qrcode";
 import { PairingManager } from "./lib/pairing";
 import { SessionStore } from "./lib/sessions";
 import { RateLimiter } from "./lib/rateLimit";
-import { askApproval, permissionsForPreset, PermissionPreset } from "./lib/promptApprover";
+import { askApproval, permissionsForPreset } from "./lib/promptApprover";
+import type { ApprovalAnswer, PermissionPreset } from "./lib/promptApprover";
 import { spawnTerminal, defaultUserCwd } from "./lib/terminal";
 import { TerminalSessionStore } from "./lib/terminalSessions";
 import { log } from "./lib/logger";
@@ -28,7 +29,7 @@ import {
   listSnippets, createSnippet, updateSnippet, deleteSnippet,
   recordUsage, exportSnippets, importSnippets, SnippetError,
 } from "./lib/snippets";
-import { Permission, SessionInfo } from "./lib/tokens";
+import { hash, Permission, safeEqual, SessionInfo } from "./lib/tokens";
 import { TrustedDeviceStore } from "./lib/trustedDevices";
 import {
   LocalProxyManager,
@@ -52,6 +53,21 @@ interface AgentDeps {
   getTunnelUrl: () => string | null;
   getPairUrl: () => string;
   rotatePairing?: () => Promise<{ pairUrl: string; token: string; expiresAt: number }>;
+  autoApprove?: { preset: PermissionPreset };
+  security?: {
+    pairPinHash: string | null;
+    pairLanOnly: boolean;
+    sessionTtlMinutes: number;
+  };
+  mode?: {
+    autoApprove: boolean;
+    keepAwake: boolean;
+    unattended: boolean;
+    autoApproveScope: PermissionPreset | null;
+    pairLanOnly: boolean;
+    pairPinRequired: boolean;
+    sessionTtlMinutes: number;
+  };
 }
 
 export interface AgentServer {
@@ -61,6 +77,7 @@ export interface AgentServer {
 
 const PairBody = z.object({
   pairingToken: z.string().min(8).max(256),
+  pairingPin: z.string().trim().min(1).max(128).optional(),
   deviceName: z.string().trim().min(1).max(80).optional(),
   deviceType: z.enum(["mobile", "desktop", "unknown"]).optional(),
   deviceFingerprint: z.string().trim().min(8).max(256).optional(),
@@ -117,6 +134,8 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
     version: deps.version,
     tunnelUrl: deps.getTunnelUrl(),
     pairUrl: deps.getPairUrl() || null,
+    pairPinRequired: Boolean(deps.security?.pairPinHash),
+    pairLanOnly: Boolean(deps.security?.pairLanOnly),
   }));
   fastify.get("/api/version", async () => {
     const getInfo = (globalThis as any).__lawangUpdateInfo;
@@ -157,11 +176,29 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
       reply.code(400);
       return { status: "invalid_request" };
     }
+    if (deps.security?.pairLanOnly && !isLanPairRequest(req)) {
+      recordEvent("auth_failed", { metadata: { reason: "pairing_network_denied", remoteAddr: ip, host: requestHost(req) } });
+      reply.code(403);
+      return { status: "rejected", reason: "pairing_network_denied" };
+    }
     const token = deps.pairing.validateRawToken(parsed.data.pairingToken);
     if (!token) {
       recordEvent("auth_failed", { metadata: { reason: "invalid_pairing_token", remoteAddr: ip } });
       reply.code(401);
       return { status: "rejected", reason: "invalid_or_expired_token" };
+    }
+    if (deps.security?.pairPinHash) {
+      const pin = parsed.data.pairingPin?.trim() || "";
+      if (!pin) {
+        recordEvent("auth_failed", { metadata: { reason: "pairing_pin_required", remoteAddr: ip } });
+        reply.code(401);
+        return { status: "rejected", reason: "pin_required" };
+      }
+      if (!safeEqual(deps.security.pairPinHash, hash(pin))) {
+        recordEvent("auth_failed", { metadata: { reason: "invalid_pairing_pin", remoteAddr: ip } });
+        reply.code(401);
+        return { status: "rejected", reason: "invalid_pairing_pin" };
+      }
     }
 
     const userAgent = (req.headers["user-agent"] as string | undefined) || "";
@@ -203,9 +240,19 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
     const { request, promise } = deps.pairing.enqueue({
       deviceName, deviceType, remoteAddr: ip, userAgent, fingerprint,
     });
-    const approval = await askApproval(request, { canTrust: !!fingerprint });
+    const approval: ApprovalAnswer = deps.autoApprove
+      ? {
+          decision: "approved",
+          trust: false,
+          preset: deps.autoApprove.preset,
+          permissions: permissionsForPreset(deps.autoApprove.preset),
+        }
+      : await askApproval(request, { canTrust: !!fingerprint });
     deps.pairing.decide(request.requestId, approval.decision);
-    if (approval.decision === "approved" && approval.trust && fingerprint) {
+    if (deps.autoApprove && approval.decision === "approved") {
+      log.warn(`Auto-approved ${deviceName} (${deviceType}, ${ip}) with scope: ${approval.preset}`);
+    }
+    if (!deps.autoApprove && approval.decision === "approved" && approval.trust && fingerprint) {
       try {
         await deps.trusted.upsert({
           name: deviceName,
@@ -273,16 +320,73 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
       permissions: s.permissions,
       deviceName: s.deviceName,
       createdAt: new Date(s.createdAt).toISOString(),
+      expiresAt: s.expiresAt ? new Date(s.expiresAt).toISOString() : null,
+      agentMode: deps.mode || {
+        autoApprove: Boolean(deps.autoApprove),
+        keepAwake: false,
+        unattended: false,
+        autoApproveScope: deps.autoApprove?.preset || null,
+        pairLanOnly: Boolean(deps.security?.pairLanOnly),
+        pairPinRequired: Boolean(deps.security?.pairPinHash),
+        sessionTtlMinutes: deps.security?.sessionTtlMinutes || 0,
+      },
     };
   });
 
-  fastify.get("/api/sessions/history", async (req, reply) => {
-    if (!fileLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" });
+  fastify.get("/api/sessions/active", async (req, reply) => {
+    const current = authenticate(req, reply, "terminal");
+    if (!current) return;
+    return {
+      sessions: deps.sessions.list().map((s) => ({
+        sessionId: s.sessionId,
+        deviceName: s.deviceName,
+        deviceType: s.deviceType,
+        remoteAddr: s.remoteAddr,
+        createdAt: new Date(s.createdAt).toISOString(),
+        lastActiveAt: new Date(s.lastActiveAt).toISOString(),
+        expiresAt: s.expiresAt ? new Date(s.expiresAt).toISOString() : null,
+        permissions: s.permissions,
+        current: s.sessionId === current.sessionId,
+      })),
+    };
+  });
+
+  fastify.delete("/api/sessions/:sessionId", async (req, reply) => {
+    const current = authenticate(req, reply, "terminal");
+    if (!current) return;
+    const raw = String((req.params as { sessionId?: string }).sessionId || "");
+    if (raw.length < 8) {
+      reply.code(400).send({ status: "invalid_request", reason: "session_id_prefix_too_short" });
+      return;
+    }
+    const match = deps.sessions.list().find((s) => s.sessionId === raw || s.sessionId.startsWith(raw));
+    if (!match) {
+      reply.code(404).send({ status: "not_found" });
+      return;
+    }
+    deps.sessions.end(match.sessionId, "revoked");
+    return { status: "revoked", sessionId: match.sessionId, current: match.sessionId === current.sessionId };
+  });
 
   const ExecBody = z.object({
     command: z.string().min(1).max(4000),
     cwd: z.string().max(1024).default("."),
     timeoutMs: z.number().int().min(1000).max(60000).optional(),
+  });
+
+  fastify.get("/api/sessions/history", async (req, reply) => {
+    if (!fileLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "file:read");
+    if (!session) return;
+    const limitRaw = (req.query as { limit?: string } | undefined)?.limit;
+    const limit = Math.min(Math.max(parseInt(String(limitRaw ?? "25"), 10) || 25, 1), 200);
+
+    try {
+      const records = await readSessionHistory(limit);
+      return { records, limit };
+    } catch (err) {
+      reply.code(500).send({ status: "error", message: (err as Error).message });
+    }
   });
 
   fastify.post("/api/exec", async (req, reply) => {
@@ -317,17 +421,6 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
         else reply.code(400).send({ status: "invalid_request", reason: err.code });
         return;
       }
-      reply.code(500).send({ status: "error", message: (err as Error).message });
-    }
-  }); return; }
-    const session = authenticate(req, reply, "file:read");
-    if (!session) return;
-    const limitRaw = (req.query as { limit?: string } | undefined)?.limit;
-    const limit = Math.min(Math.max(parseInt(String(limitRaw ?? "25"), 10) || 25, 1), 200);
-    try {
-      const records = await readSessionHistory(limit);
-      return { records, limit };
-    } catch (err) {
       reply.code(500).send({ status: "error", message: (err as Error).message });
     }
   });
@@ -1210,6 +1303,45 @@ function isOriginAllowed(originHeader: string | undefined, deps: AgentDeps): boo
   if (pair) {
     try { if (new URL(pair).hostname.toLowerCase() === host) return true; } catch { /* ignore */ }
   }
+  return false;
+}
+
+function isLanPairRequest(req: FastifyRequest): boolean {
+  const host = requestHost(req);
+  if (host) return isLocalOrPrivateHost(host);
+  const ip = normalizeHost(req.ip || "");
+  return isLocalOrPrivateHost(ip);
+}
+
+function requestHost(req: FastifyRequest): string {
+  const raw = String(req.headers.host || "");
+  if (!raw) return "";
+  return normalizeHost(raw);
+}
+
+function normalizeHost(raw: string): string {
+  let host = raw.trim().toLowerCase();
+  if (!host) return "";
+  if (host.startsWith("[")) {
+    const end = host.indexOf("]");
+    return end >= 0 ? host.slice(1, end) : host;
+  }
+  if (host.startsWith("::ffff:")) host = host.slice("::ffff:".length);
+  const colon = host.lastIndexOf(":");
+  if (colon > -1 && host.indexOf(":") === colon) host = host.slice(0, colon);
+  return host;
+}
+
+function isLocalOrPrivateHost(host: string): boolean {
+  const h = normalizeHost(host);
+  if (!h) return false;
+  if (h === "localhost" || h === "127.0.0.1" || h === "::1") return true;
+  if (h.startsWith("127.")) return true;
+  if (h.startsWith("10.")) return true;
+  if (/^192\.168\./.test(h)) return true;
+  if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(h)) return true;
+  if (/^169\.254\./.test(h)) return true;
+  if (h.startsWith("fc") || h.startsWith("fd") || h.startsWith("fe80:")) return true;
   return false;
 }
 

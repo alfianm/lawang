@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Keyboard, Loader2, Monitor, MousePointer2, RefreshCw, Send } from "lucide-react";
+import { AlertTriangle, Keyboard, Loader2, Maximize2, Minimize2, Monitor, MousePointer2, RefreshCw, Send } from "lucide-react";
 import {
   AuthError,
   DesktopCapabilities,
@@ -20,6 +20,10 @@ export function DesktopPanel({ sessionToken, canControl, onAuthFailed }: Props) 
   const [capturedAt, setCapturedAt] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
   const [controlEnabled, setControlEnabled] = useState(false);
+  const [refreshMs, setRefreshMs] = useState(1000);
+  const [viewMode, setViewMode] = useState<"fit" | "large">(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches ? "large" : "fit"
+  );
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +70,7 @@ export function DesktopPanel({ sessionToken, canControl, onAuthFailed }: Props) 
       } finally {
         if (!cancelled) {
           setBusy(false);
-          timer = window.setTimeout(tick, 1000);
+          timer = window.setTimeout(tick, refreshMs);
         }
       }
     }
@@ -76,7 +80,7 @@ export function DesktopPanel({ sessionToken, canControl, onAuthFailed }: Props) 
       cancelled = true;
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [caps?.view.supported, paused, sessionToken]);
+  }, [caps?.view.supported, paused, refreshMs, sessionToken]);
 
   useEffect(() => {
     return () => {
@@ -174,23 +178,51 @@ export function DesktopPanel({ sessionToken, canControl, onAuthFailed }: Props) 
   }
 
   return (
-    <div className="h-full flex flex-col bg-bg">
-      <header className="shrink-0 flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-line bg-panel/60">
-        <div className="flex items-center gap-2 min-w-0">
+    <div className="h-full min-h-0 flex flex-col bg-bg overflow-hidden">
+      <header className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-2 sm:px-3 py-2 border-b border-line bg-panel/60">
+        <div className="flex items-center gap-2 min-w-0 w-full sm:w-auto">
           <Monitor className="w-4 h-4 text-accent" />
           <span className="text-sm font-medium text-ink">Desktop</span>
           <span className="text-xs text-muted font-mono truncate">{caps.view.provider}</span>
+          <span className={`text-[11px] uppercase tracking-wide px-1.5 py-0.5 rounded border ${
+            canControl && caps.control.supported
+              ? "border-ok/40 text-ok"
+              : "border-line text-muted"
+          }`}>
+            {canControl && caps.control.supported ? "control ready" : "view only"}
+          </span>
           {capturedAt && (
             <span className="text-[11px] text-muted font-mono">{new Date(capturedAt).toLocaleTimeString()}</span>
           )}
           {busy && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted" />}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin w-full sm:w-auto">
+          <label className="shrink-0 inline-flex items-center gap-1 text-xs text-muted">
+            Refresh
+            <select
+              value={refreshMs}
+              onChange={(e) => setRefreshMs(Number(e.target.value))}
+              className="bg-bg border border-line rounded px-2 py-1 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-accent/40"
+              title="Desktop refresh interval"
+            >
+              <option value={500}>Fast</option>
+              <option value={1000}>Normal</option>
+              <option value={2000}>Slow</option>
+            </select>
+          </label>
+          <button
+            onClick={() => setViewMode((v) => v === "fit" ? "large" : "fit")}
+            className="shrink-0 inline-flex items-center gap-1 text-xs px-2 py-1 border border-line rounded text-muted hover:text-ink"
+            title={viewMode === "fit" ? "Use a larger pannable desktop view" : "Fit desktop to screen"}
+          >
+            {viewMode === "fit" ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
+            {viewMode === "fit" ? "Large" : "Fit"}
+          </button>
           {canControl && caps.control.supported && (
             <button
               onClick={() => setControlEnabled((v) => !v)}
-              className={`inline-flex items-center gap-1 text-xs px-2 py-1 border rounded ${
+              className={`shrink-0 inline-flex items-center gap-1 text-xs px-2 py-1 border rounded ${
                 controlEnabled ? "border-warn/60 text-warn bg-warn/10" : "border-line text-muted hover:text-ink"
               }`}
             >
@@ -199,7 +231,7 @@ export function DesktopPanel({ sessionToken, canControl, onAuthFailed }: Props) 
           )}
           <button
             onClick={() => setPaused((v) => !v)}
-            className="inline-flex items-center gap-1 text-xs px-2 py-1 border border-line rounded text-muted hover:text-ink"
+            className="shrink-0 inline-flex items-center gap-1 text-xs px-2 py-1 border border-line rounded text-muted hover:text-ink"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${paused ? "" : "animate-spin"}`} /> {paused ? "Resume" : "Pause"}
           </button>
@@ -207,15 +239,33 @@ export function DesktopPanel({ sessionToken, canControl, onAuthFailed }: Props) 
       </header>
 
       {error && (
-        <div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-danger/30 bg-danger/5 text-xs text-danger">
+        <div className="shrink-0 px-3 py-2 border-b border-danger/30 bg-danger/5 text-xs text-danger">
+          <div className="flex items-center gap-2">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
           <span className="truncate">{error}</span>
+          </div>
+          {isMacPermissionError(error) && (
+            <div className="mt-1 text-muted">
+              Enable macOS Screen Recording for the terminal app running Lawang. For mouse/keyboard control, also enable Accessibility.
+            </div>
+          )}
+        </div>
+      )}
+
+      {caps.view.supported && (!canControl || !caps.control.supported) && (
+        <div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-line bg-panel/30 text-xs text-muted">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+          <span>
+            {!canControl
+              ? "This session does not include screen control permission."
+              : caps.control.reason || "Desktop control is not available on this host."}
+          </span>
         </div>
       )}
 
       {canControl && controlEnabled && (
-        <div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-line bg-panel/40">
-          <Keyboard className="w-4 h-4 text-muted" />
+        <div className="shrink-0 flex flex-wrap sm:flex-nowrap items-center gap-2 px-2 sm:px-3 py-2 border-b border-line bg-panel/40">
+          <Keyboard className="w-4 h-4 text-muted shrink-0" />
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -230,7 +280,7 @@ export function DesktopPanel({ sessionToken, canControl, onAuthFailed }: Props) 
           />
           <button
             onClick={() => void sendText()}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-accent text-bg text-xs font-medium"
+            className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded bg-accent text-bg text-xs font-medium"
           >
             <Send className="w-3.5 h-3.5" /> Send
           </button>
@@ -242,7 +292,9 @@ export function DesktopPanel({ sessionToken, canControl, onAuthFailed }: Props) 
         tabIndex={0}
         onKeyDown={onKeyDown}
         onPointerDown={() => frameRef.current?.focus()}
-        className={`flex-1 min-h-0 overflow-hidden flex items-center justify-center outline-none ${
+        className={`flex-1 min-h-0 p-2 outline-none ${
+          viewMode === "large" ? "overflow-auto flex items-start justify-start" : "overflow-hidden flex items-start justify-center sm:items-center"
+        } ${
           controlEnabled ? "cursor-crosshair" : "cursor-default"
         }`}
       >
@@ -255,7 +307,10 @@ export function DesktopPanel({ sessionToken, canControl, onAuthFailed }: Props) 
             onPointerMove={onPointerMove}
             onClick={onClick}
             onContextMenu={onContextMenu}
-            className="max-w-full max-h-full object-contain select-none"
+            className={viewMode === "large"
+              ? "w-auto h-auto min-w-[720px] sm:min-w-[960px] max-w-none max-h-none select-none"
+              : "max-w-full max-h-full object-contain select-none"
+            }
           />
         ) : (
           <div className="text-muted text-sm flex items-center gap-2">
@@ -281,4 +336,8 @@ function readableError(err: unknown): string {
     // fall back to raw error
   }
   return text;
+}
+
+function isMacPermissionError(text: string): boolean {
+  return /screen recording|accessibility|permission/i.test(text);
 }

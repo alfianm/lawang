@@ -3,6 +3,8 @@ export interface AgentInfo {
   version: string;
   tunnelUrl: string | null;
   pairUrl: string | null;
+  pairPinRequired?: boolean;
+  pairLanOnly?: boolean;
 }
 
 export interface PairSuccess {
@@ -32,6 +34,7 @@ export async function requestPairing(input: {
   deviceName?: string;
   deviceType?: "mobile" | "desktop" | "unknown";
   deviceFingerprint?: string;
+  pairingPin?: string;
 }): Promise<PairResponse> {
   const r = await fetch("/api/pair/request", {
     method: "POST",
@@ -76,6 +79,16 @@ export interface SessionInfoResponse {
   permissions: string[];
   deviceName: string;
   createdAt: string;
+  expiresAt: string | null;
+  agentMode?: {
+    autoApprove: boolean;
+    keepAwake: boolean;
+    unattended: boolean;
+    autoApproveScope: "full" | "files" | "terminal" | null;
+    pairLanOnly: boolean;
+    pairPinRequired: boolean;
+    sessionTtlMinutes: number;
+  };
 }
 
 function authHeaders(token: string) {
@@ -129,6 +142,18 @@ export interface SessionHistoryRecord {
   endReason: "ended" | "revoked" | "expired" | null;
   remoteAddr?: string;
   trusted?: boolean;
+}
+
+export interface ActiveSessionRecord {
+  sessionId: string;
+  deviceName: string;
+  deviceType: string;
+  remoteAddr: string;
+  createdAt: string;
+  lastActiveAt: string;
+  expiresAt: string | null;
+  permissions: string[];
+  current: boolean;
 }
 
 export interface VersionInfo {
@@ -364,6 +389,20 @@ export function fetchSessionHistory(token: string, limit = 25) {
     token,
     `/api/sessions/history?limit=${encodeURIComponent(String(limit))}`
   );
+}
+
+export function fetchActiveSessions(token: string) {
+  return authedJson<{ sessions: ActiveSessionRecord[] }>(token, "/api/sessions/active");
+}
+
+export async function revokeActiveSession(token: string, sessionId: string): Promise<{ status: string; sessionId: string; current: boolean }> {
+  const r = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (r.status === 401 || r.status === 403) throw new AuthError(r.status);
+  if (!r.ok) throw new Error(`http_${r.status}`);
+  return await r.json();
 }
 
 export function listFiles(token: string, p: string): Promise<ListDirResponse> {

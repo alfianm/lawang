@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Folder, FileText, FileCode, FileImage, File as FileIcon,
   ChevronRight, Home, Download, RefreshCw, Loader2, AlertTriangle, ArrowLeft, X,
-  FilePlus, FolderPlus, Upload, Pencil, Trash2, Save, MoreVertical
+  FilePlus, FolderPlus, Upload, Pencil, Trash2, Save, MoreVertical, Search
 } from "lucide-react";
 import {
   AuthError, DirEntry, FileReadResponse, ListDirResponse,
@@ -20,6 +20,8 @@ export function FilesPanel(props: { sessionToken: string; onAuthFailed: () => vo
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [openFile, setOpenFile] = useState<DirEntry | null>(null);
+  const [query, setQuery] = useState("");
+  const [dragging, setDragging] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [confirm, setConfirm] = useState<null | { title: string; body: string; danger?: boolean; onConfirm: () => void | Promise<void> }>(null);
@@ -101,7 +103,7 @@ export function FilesPanel(props: { sessionToken: string; onAuthFailed: () => vo
     });
   }
 
-  async function handleUpload(files: FileList | null) {
+  async function handleUpload(files: FileList | File[] | null) {
     if (!files || files.length === 0) return;
     let okCount = 0;
     for (const f of Array.from(files)) {
@@ -158,10 +160,32 @@ export function FilesPanel(props: { sessionToken: string; onAuthFailed: () => vo
   }
 
   const crumbs = useMemo(() => buildCrumbs(cwd), [cwd]);
+  const filteredEntries = useMemo(() => {
+    const entries = data?.entries || [];
+    const q = query.trim().toLowerCase();
+    if (!q) return entries;
+    return entries.filter((entry) => {
+      return entry.name.toLowerCase().includes(q) || entry.path.toLowerCase().includes(q);
+    });
+  }, [data, query]);
   const rootLabel = props.rootName || "root";
 
   return (
-    <div className="h-full flex flex-col md:flex-row min-h-0">
+    <div
+      className="relative h-full flex flex-col md:flex-row min-h-0"
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (e.dataTransfer.types.includes("Files")) setDragging(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragging(false);
+        void handleUpload(e.dataTransfer.files);
+      }}
+    >
       <div className={`md:w-1/2 md:max-w-md md:border-r border-line flex flex-col min-h-0 ${openFile ? "hidden md:flex" : "flex"}`}>
         <Toolbar
           rootLabel={rootLabel}
@@ -172,6 +196,8 @@ export function FilesPanel(props: { sessionToken: string; onAuthFailed: () => vo
           loading={loading}
         />
         <ActionBar
+          query={query}
+          onQueryChange={setQuery}
           onNewFile={handleNewFile}
           onNewDir={handleNewDir}
           onUploadClick={() => fileInputRef.current?.click()}
@@ -202,8 +228,10 @@ export function FilesPanel(props: { sessionToken: string; onAuthFailed: () => vo
               )}
               {data.entries.length === 0 ? (
                 <li className="px-3 py-6 text-sm text-muted text-center">Empty folder</li>
+              ) : filteredEntries.length === 0 ? (
+                <li className="px-3 py-6 text-sm text-muted text-center">No matches</li>
               ) : (
-                data.entries.map((e) => (
+                filteredEntries.map((e) => (
                   <EntryRow
                     key={e.path}
                     entry={e}
@@ -240,6 +268,15 @@ export function FilesPanel(props: { sessionToken: string; onAuthFailed: () => vo
         )}
       </div>
 
+      {dragging && (
+        <div className="absolute inset-0 z-30 bg-accent/10 border-2 border-accent/60 border-dashed flex items-center justify-center pointer-events-none">
+          <div className="rounded-md border border-accent/50 bg-panel px-4 py-3 text-sm text-ink shadow-lg">
+            <Upload className="w-5 h-5 text-accent inline-block mr-2" />
+            Drop files to upload into {cwd === "." ? rootLabel : cwd}
+          </div>
+        </div>
+      )}
+
       <ToastStack toasts={toasts} />
       {confirm && (
         <ConfirmModal
@@ -263,12 +300,41 @@ export function FilesPanel(props: { sessionToken: string; onAuthFailed: () => vo
   );
 }
 
-function ActionBar(props: { onNewFile: () => void; onNewDir: () => void; onUploadClick: () => void }) {
+function ActionBar(props: {
+  query: string;
+  onQueryChange: (value: string) => void;
+  onNewFile: () => void;
+  onNewDir: () => void;
+  onUploadClick: () => void;
+}) {
   return (
-    <div className="flex items-center gap-1 px-2 py-1 border-b border-line bg-panel/40">
-      <ToolButton onClick={props.onNewFile} title="New file" icon={<FilePlus className="w-4 h-4" />} label="File" />
-      <ToolButton onClick={props.onNewDir} title="New folder" icon={<FolderPlus className="w-4 h-4" />} label="Folder" />
-      <ToolButton onClick={props.onUploadClick} title="Upload files" icon={<Upload className="w-4 h-4" />} label="Upload" />
+    <div className="border-b border-line bg-panel/40">
+      <div className="flex items-center gap-1 px-2 py-1">
+        <ToolButton onClick={props.onNewFile} title="New file" icon={<FilePlus className="w-4 h-4" />} label="File" />
+        <ToolButton onClick={props.onNewDir} title="New folder" icon={<FolderPlus className="w-4 h-4" />} label="Folder" />
+        <ToolButton onClick={props.onUploadClick} title="Upload files" icon={<Upload className="w-4 h-4" />} label="Upload" />
+      </div>
+      <div className="px-2 pb-2">
+        <label className="flex items-center gap-2 rounded border border-line bg-bg px-2 py-1.5 text-xs text-muted">
+          <Search className="w-3.5 h-3.5 shrink-0" />
+          <input
+            value={props.query}
+            onChange={(e) => props.onQueryChange(e.target.value)}
+            placeholder="Search current folder"
+            className="min-w-0 flex-1 bg-transparent text-sm text-ink focus:outline-none"
+          />
+          {props.query && (
+            <button
+              type="button"
+              onClick={() => props.onQueryChange("")}
+              className="text-muted hover:text-ink"
+              title="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </label>
+      </div>
     </div>
   );
 }

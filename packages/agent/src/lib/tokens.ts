@@ -41,6 +41,7 @@ export interface SessionInfo {
   remoteAddr: string;
   createdAt: number;
   lastActiveAt: number;
+  expiresAt: number | null;
   status: "active" | "ended" | "revoked" | "expired";
   permissions: Permission[];
 }

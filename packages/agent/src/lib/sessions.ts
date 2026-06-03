@@ -5,11 +5,13 @@ import { newSessionToken, hash, safeEqual, SessionInfo, Permission } from "./tok
 export class SessionStore {
   private sessions = new Map<string, SessionInfo>();
   private idleTimeoutMs: number;
+  private maxLifetimeMs: number;
   private timer: NodeJS.Timeout;
   private endListeners = new Set<(sessionId: string, reason: "ended" | "revoked" | "expired") => void>();
 
-  constructor(idleTimeoutMinutes: number) {
+  constructor(idleTimeoutMinutes: number, maxLifetimeMinutes = 0) {
     this.idleTimeoutMs = idleTimeoutMinutes * 60 * 1000;
+    this.maxLifetimeMs = Math.max(0, maxLifetimeMinutes) * 60 * 1000;
     this.timer = setInterval(() => this.sweep(), 60_000).unref();
   }
 
@@ -32,6 +34,7 @@ export class SessionStore {
       remoteAddr: opts.remoteAddr,
       createdAt: Date.now(),
       lastActiveAt: Date.now(),
+      expiresAt: this.maxLifetimeMs > 0 ? Date.now() + this.maxLifetimeMs : null,
       status: "active",
       permissions,
     };
@@ -50,7 +53,13 @@ export class SessionStore {
 
   byTokenHash(h: string): SessionInfo | undefined {
     for (const s of this.sessions.values()) {
-      if (s.status === "active" && safeEqual(s.sessionTokenHash, h)) return s;
+      if (s.status === "active" && safeEqual(s.sessionTokenHash, h)) {
+        if (s.expiresAt && Date.now() > s.expiresAt) {
+          this.end(s.sessionId, "expired");
+          return undefined;
+        }
+        return s;
+      }
     }
     return undefined;
   }
@@ -93,8 +102,10 @@ export class SessionStore {
 
   private sweep() {
     const cutoff = Date.now() - this.idleTimeoutMs;
+    const now = Date.now();
     for (const s of this.list()) {
       if (s.lastActiveAt < cutoff) this.end(s.sessionId, "expired");
+      else if (s.expiresAt && now > s.expiresAt) this.end(s.sessionId, "expired");
     }
   }
 

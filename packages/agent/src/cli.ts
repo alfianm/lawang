@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import path from "node:path";
 import fs from "node:fs";
+import { hash } from "./lib/tokens";
 import { Command } from "commander";
 import { loadConfig, saveConfig } from "./lib/config";
 import { PairingManager } from "./lib/pairing";
@@ -17,6 +18,7 @@ import { LocalProxyManager } from "./lib/localProxy";
 import { TerminalSessionStore } from "./lib/terminalSessions";
 import { runVerify } from "./lib/verify";
 import { checkForUpdate, UpdateInfo } from "./lib/updateCheck";
+import type { PermissionPreset } from "./lib/promptApprover";
 import {
   buildContext as buildServiceCtx,
   detectPlatform,
@@ -52,8 +54,15 @@ program
   .option("--no-tunnel", "Disable cloudflared tunnel")
   .option("--token-ttl <minutes>", "Pairing token TTL in minutes", (v) => parseInt(v, 10), 15)
   .option("--idle-timeout <minutes>", "Idle session timeout in minutes", (v) => parseInt(v, 10), 30)
+  .option("--session-ttl <minutes>", "Maximum session lifetime in minutes; 0 disables max lifetime", (v) => parseInt(v, 10), 0)
+  .option("--pair-pin <pin>", "Require an extra PIN during pairing")
+  .option("--pair-lan-only", "Only allow pairing from localhost or LAN/private hosts")
   .option("--qr-size <size>", "QR size in terminal: small | large | off", "large")
   .option("--keep-awake", "Prevent the host machine from sleeping while the agent is running")
+  .option("--auto-approve", "Approve pairing requests automatically without an interactive CLI prompt")
+  .option("--auto-approve-scope <scope>", "Scope for --auto-approve: full | files | terminal", "full")
+  .option("--unattended", "Shortcut for --auto-approve --keep-awake")
+  .option("--unattended-lan-only", "Shortcut for --unattended --pair-lan-only")
   .option(
     "--proxy <ports>",
     "Comma separated list of localhost ports to expose under /proxy/<port>. Use 'open' to allow any.",
@@ -70,8 +79,25 @@ program
     cfg.settings.idleTimeoutMinutes = opts.idleTimeout;
     await saveConfig(cfg);
 
+    const unattendedLanOnly = Boolean(opts.unattendedLanOnly);
+    const unattended = Boolean(opts.unattended || unattendedLanOnly);
+    const autoApproveEnabled = Boolean(opts.autoApprove || unattended);
+    const keepAwakeEnabled = Boolean(opts.keepAwake || unattended);
+    const pairLanOnly = Boolean(opts.pairLanOnly || unattendedLanOnly);
+    const pairPin = typeof opts.pairPin === "string" ? opts.pairPin.trim() : "";
+    const sessionTtlMinutes = Number.isFinite(opts.sessionTtl) ? Math.max(0, opts.sessionTtl) : 0;
+    const autoApproveScope = parsePermissionPreset(opts.autoApproveScope);
+    if (autoApproveEnabled && !autoApproveScope) {
+      log.error(`Invalid --auto-approve-scope: ${opts.autoApproveScope}. Use full, files, or terminal.`);
+      process.exit(1);
+    }
+    if (pairPin && (pairPin.length < 4 || pairPin.length > 64)) {
+      log.error("--pair-pin must be 4 to 64 characters.");
+      process.exit(1);
+    }
+
     const pairing = new PairingManager(cfg.settings.tokenExpiryMinutes);
-    const sessions = new SessionStore(cfg.settings.idleTimeoutMinutes);
+    const sessions = new SessionStore(cfg.settings.idleTimeoutMinutes, sessionTtlMinutes);
     const trusted = new TrustedDeviceStore(cfg);
     const terminals = new TerminalSessionStore();
     sessions.onEnd((sessionId) => terminals.end(sessionId));
@@ -111,6 +137,21 @@ program
       getTunnelUrl: () => getTunnelUrl(),
       getPairUrl: () => currentPairUrl,
       rotatePairing: () => rotateAndAnnouncePtr(true),
+      autoApprove: autoApproveEnabled && autoApproveScope ? { preset: autoApproveScope } : undefined,
+      security: {
+        pairPinHash: pairPin ? hash(pairPin) : null,
+        pairLanOnly,
+        sessionTtlMinutes,
+      },
+      mode: {
+        autoApprove: autoApproveEnabled,
+        keepAwake: keepAwakeEnabled,
+        unattended,
+        autoApproveScope,
+        pairLanOnly,
+        pairPinRequired: Boolean(pairPin),
+        sessionTtlMinutes,
+      },
     });
 
     if (opts.tunnel) {
@@ -197,6 +238,21 @@ program
     if (trustedCount > 0) {
       log.info(`Trusted devices: ${trustedCount} (auto-approve enabled)`);
     }
+    if (unattended) {
+      log.warn("Unattended mode is ON. Host approval is skipped and keep-awake is enabled.");
+    }
+    if (pairLanOnly) {
+      log.warn("Pairing is limited to localhost/LAN/private hosts.");
+    }
+    if (pairPin) {
+      log.warn("Pairing PIN is required for new devices.");
+    }
+    if (sessionTtlMinutes > 0) {
+      log.info(`Session max lifetime: ${sessionTtlMinutes} minute(s).`);
+    }
+    if (autoApproveEnabled && autoApproveScope) {
+      log.warn(`Auto-approve is ON. New devices with a valid pairing token get scope: ${autoApproveScope}.`);
+    }
 
     // Update check, best-effort, never blocks startup.
     let latestUpdate: UpdateInfo | null = null;
@@ -220,7 +276,7 @@ program
     (globalThis as any).__lawangUpdateInfo = () => latestUpdate;
 
     let keepAwake: KeepAwakeHandle | null = null;
-    if (opts.keepAwake) {
+    if (keepAwakeEnabled) {
       keepAwake = startKeepAwake();
       if (keepAwake.provider === "noop") {
         log.warn(`keep-awake: ${keepAwake.reason}`);
@@ -258,6 +314,12 @@ program
       }
     }, 5_000).unref();
   });
+
+function parsePermissionPreset(value: unknown): PermissionPreset | null {
+  const s = String(value || "").trim().toLowerCase();
+  if (s === "full" || s === "files" || s === "terminal") return s;
+  return null;
+}
 
 program
   .command("devices")
@@ -475,6 +537,12 @@ program
   .option("--root <path>", "Project root the service should run in", process.cwd())
   .option("--no-tunnel", "Add --no-tunnel to the service args")
   .option("--keep-awake", "Add --keep-awake to the service args (Linux only is meaningful)")
+  .option("--auto-approve", "Add --auto-approve to the service args")
+  .option("--auto-approve-scope <scope>", "Scope for service auto-approve: full | files | terminal", "full")
+  .option("--unattended", "Add --unattended to the service args")
+  .option("--unattended-lan-only", "Add --unattended-lan-only to the service args")
+  .option("--pair-lan-only", "Add --pair-lan-only to the service args")
+  .option("--session-ttl <minutes>", "Add --session-ttl to the service args", (v) => parseInt(v, 10), 0)
   .option("--register", "Register the unit with systemctl/launchctl after writing it")
   .option("--print", "Only print the unit file, do not write or register")
   .action(async (opts) => {
@@ -485,7 +553,26 @@ program
     }
     const args: string[] = ["start"];
     if (opts.tunnel === false) args.push("--no-tunnel");
-    if (opts.keepAwake) args.push("--keep-awake");
+    if (opts.unattendedLanOnly) {
+      args.push("--unattended-lan-only");
+    } else if (opts.unattended) {
+      args.push("--unattended");
+    } else {
+      if (opts.keepAwake) args.push("--keep-awake");
+      if (opts.autoApprove) args.push("--auto-approve");
+    }
+    if (opts.pairLanOnly) args.push("--pair-lan-only");
+    if (Number.isFinite(opts.sessionTtl) && opts.sessionTtl > 0) {
+      args.push("--session-ttl", String(opts.sessionTtl));
+    }
+    if (opts.autoApprove || opts.unattended || opts.unattendedLanOnly) {
+      const preset = parsePermissionPreset(opts.autoApproveScope);
+      if (!preset) {
+        log.error(`Invalid --auto-approve-scope: ${opts.autoApproveScope}. Use full, files, or terminal.`);
+        process.exit(1);
+      }
+      args.push("--auto-approve-scope", preset);
+    }
     args.push("--root", path.resolve(opts.root));
 
     const binaryPath = process.execPath === "node" ? "lawang" : process.execPath;
