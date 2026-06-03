@@ -9,11 +9,12 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.17-339933.svg)](packages/agent/package.json)
 
-[Quick Start](#quick-start) •
-[Comparison](#lawang-vs-other-remote-solutions) •
-[Features](#key-features) •
-[Setup](#setup-guide) •
-[FAQ](#frequently-asked-questions) •
+[Quick Start](#quick-start) |
+[Comparison](#lawang-vs-other-remote-solutions) |
+[Features](#key-features) |
+[Setup](#setup-guide) |
+[FAQ](#frequently-asked-questions) |
+[Bahasa Indonesia](#bahasa-indonesia) |
 [Docs](docs/DOCUMENTATION.md)
 
 ---
@@ -484,6 +485,221 @@ Check:
 
 Pair again with the latest QR token. If `--session-ttl` is enabled, sessions
 expire after the configured maximum lifetime even if active.
+
+---
+
+## Bahasa Indonesia
+
+Lawang adalah alat remote access lokal untuk membuka terminal, file, Git,
+localhost proxy, kontrol host, dan preview remote desktop dari browser.
+
+Jalankan Lawang di laptop atau mesin kerja, scan QR dari perangkat lain, approve
+perangkat tersebut, lalu gunakan workspace langsung dari browser HP, tablet, atau
+laptop lain.
+
+Lawang tidak membutuhkan akun, tidak memakai dashboard cloud terpusat, dan host
+tetap memegang kontrol atas pairing, permission, dan sesi aktif.
+
+### Status Pengembangan
+
+Lawang sudah bisa digunakan untuk workflow developer lokal, tetapi beberapa area
+masih aktif dikembangkan:
+
+- Remote desktop saat ini fokus untuk host macOS.
+- Linux sudah mendukung workflow inti seperti terminal, file, Git, proxy, audit,
+  dan service.
+- Windows masih parsial dan belum sepenuhnya dites.
+- Desktop streaming masih preview, belum ditujukan sebagai pengganti penuh
+  TeamViewer atau Chrome Remote Desktop.
+
+### Kenapa Lawang?
+
+Remote access untuk kerja developer sering terasa kurang pas:
+
+- SSH kuat, tetapi setup key, firewall, dan mobile client bisa merepotkan.
+- VPN terlalu besar untuk sekadar cek terminal atau edit file singkat.
+- Aplikasi remote desktop fokus ke layar, bukan terminal, Git, file, dan port
+  development.
+- Dashboard cloud menambah area trust.
+- Workflow dari HP sering terpecah antara terminal, file manager, dan Git app.
+
+Lawang mengambil pendekatan yang lebih kecil dan lokal:
+
+- Satu command untuk menjalankan host agent.
+- Pairing memakai QR token yang singkat masa berlakunya.
+- Approval host aktif secara default.
+- Workspace browser berisi terminal, file, editor, Git, proxy, audit log, host
+  controls, dan remote desktop preview.
+- Tanpa akun dan tanpa hosted broker yang menyimpan file atau output terminal.
+- Open source, sehingga behavior host dan model keamanan bisa diperiksa.
+
+### Mulai Cepat
+
+Install dari NPM:
+
+```bash
+npm install -g lawang
+lawang start
+```
+
+Lalu:
+
+1. Buka URL QR yang muncul di CLI, atau buka `http://localhost:3999/qr`.
+2. Scan QR dari perangkat lain.
+3. Approve pairing request di host CLI.
+4. Gunakan workspace Lawang dari browser.
+
+Untuk mode unattended yang lebih ketat:
+
+```bash
+lawang start --unattended-lan-only --pair-pin 123456 --session-ttl 120
+```
+
+Mode tersebut menjaga host tetap awake, auto-approve pairing token yang valid,
+membatasi pairing ke jaringan LAN/private, meminta PIN, dan membuat sesi expired
+setelah 120 menit.
+
+### Fitur Utama
+
+| Fitur | Fungsi |
+|-------|--------|
+| Overview dashboard | Melihat status host, sesi aktif, permission, dan quick actions |
+| Remote terminal | Membuka shell host lewat WebSocket dengan PTY sungguhan |
+| Reconnect-safe terminal | Sesi terminal tetap hidup saat koneksi browser terputus sebentar |
+| File explorer | Browse, upload, download, rename, delete, dan buat folder |
+| Code editor | Edit file dari browser memakai Monaco editor |
+| Git panel | Lihat status, diff, log, stage, commit, pull, dan push |
+| Command chat | Jalankan command singkat dengan output yang mudah dibaca |
+| Command palette | Navigasi cepat memakai `Cmd-K` atau `Ctrl-K` |
+| Localhost proxy | Membuka local dev server lewat `/proxy/<port>` |
+| Remote desktop preview | Melihat layar macOS host dan optional input control |
+| Host controls | Lock, sleep, reboot, atau shutdown dari UI |
+| Pairing PIN | Menambah PIN di atas token QR |
+| LAN-only pairing | Membatasi pairing ke hostname/IP private |
+| Audit log | Mencatat event sensitif ke JSONL lokal |
+| Trusted device revoke | Mencabut akses perangkat yang sudah dipercaya |
+
+### Platform
+
+Host:
+
+- macOS: target utama
+- Linux: mendukung workflow inti
+- Windows: parsial, masih perlu testing
+
+Client:
+
+- Browser modern seperti Chrome, Safari, Firefox, dan Edge
+- Browser iOS dan Android
+- Browser desktop di macOS, Linux, dan Windows
+
+Remote desktop saat ini membutuhkan permission macOS:
+
+```text
+System Settings -> Privacy & Security -> Screen Recording
+System Settings -> Privacy & Security -> Accessibility
+```
+
+### Setup dari Source
+
+Untuk contributor atau development lokal:
+
+```bash
+git clone https://github.com/alfianm/lawang.git
+cd lawang
+npm install
+npm run build
+npm start
+```
+
+Mode development:
+
+```bash
+npm run dev:agent
+npm run dev:web
+```
+
+### Command CLI
+
+| Command | Keterangan |
+|---------|------------|
+| `lawang start` | Menjalankan agent dan pairing flow |
+| `lawang start --no-tunnel` | Mematikan percobaan public tunnel |
+| `lawang start --proxy 3000,5173` | Membuka local dev port tertentu |
+| `lawang start --unattended` | Auto-approve pairing token valid dan menjaga host awake |
+| `lawang start --unattended-lan-only` | Unattended mode khusus LAN/private network |
+| `lawang start --pair-pin <pin>` | Meminta PIN tambahan saat pairing |
+| `lawang start --session-ttl 120` | Membatasi umur sesi dalam menit |
+| `lawang rotate` | Mengganti QR pairing token tanpa restart |
+| `lawang sessions` | Melihat sesi aktif |
+| `lawang sessions --revoke <id>` | Mencabut sesi aktif |
+| `lawang devices` | Melihat trusted devices |
+| `lawang devices --revoke <id>` | Mencabut trusted device |
+| `lawang history` | Melihat riwayat sesi dari audit log |
+| `lawang install-service` | Membuat unit service systemd atau launchd |
+| `lawang service-status` | Melihat status service |
+| `lawang verify` | Menjalankan security smoke checks |
+
+### Pertanyaan Umum
+
+#### Apakah Lawang aman?
+
+Lawang dibuat dengan model local-first:
+
+- QR token random, short-lived, one-time, dan disimpan sebagai hash.
+- Session token random dan disimpan sebagai hash di memory.
+- PIN pairing optional ikut di-hash sebelum dibandingkan.
+- Approval host wajib secara default.
+- Permission dicek di setiap API dan WebSocket path.
+- File access dibatasi ke project root.
+- Operasi sensitif dicatat di audit log lokal.
+
+Untuk host unattended, gunakan `--pair-pin`, `--pair-lan-only`, dan
+`--session-ttl`.
+
+#### Apakah perlu akun?
+
+Tidak. Lawang tidak membutuhkan akun atau cloud dashboard.
+
+#### Apakah perlu membuka port router?
+
+Untuk LAN, tidak perlu port forwarding selama perangkat client bisa mengakses IP
+host. Untuk akses dari luar jaringan, Lawang dapat mencoba tunnel `cloudflared`
+jika tersedia.
+
+#### Apakah ini pengganti SSH?
+
+Tidak sepenuhnya. SSH tetap cocok untuk banyak server workflow. Lawang lebih
+ditujukan sebagai browser workspace untuk mesin yang kamu miliki, lengkap dengan
+QR pairing, file explorer, Git, proxy local site, audit log, dan UI yang nyaman
+di perangkat mobile.
+
+### Troubleshooting Singkat
+
+Jika port `3999` sudah dipakai:
+
+```bash
+lawang start --port 4100
+```
+
+Jika ingin LAN-only:
+
+```bash
+lawang start --no-tunnel
+```
+
+Jika QR expired:
+
+```bash
+lawang rotate
+```
+
+Jika HP tidak bisa connect:
+
+- Pastikan host dan HP ada di jaringan yang sama.
+- Gunakan IP LAN host, bukan `localhost`, saat dibuka dari perangkat lain.
+- Pastikan firewall mengizinkan port Lawang.
+- Untuk akses dari luar LAN, pastikan tunnel tersedia.
 
 ---
 
