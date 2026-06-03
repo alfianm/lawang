@@ -1,265 +1,530 @@
-# Lawang
+# Lawang - Remote Workspace for Your Own Machine
 
-[![npm](https://img.shields.io/npm/v/lawang?color=0ea5e9)](https://www.npmjs.com/package/lawang)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+**Open your terminal, files, Git workflow, local dev servers, and a macOS desktop preview from any browser.**
+
+**Run one command, scan a QR code, approve the device, and work from your phone, tablet, or another laptop.**
+
+[![npm version](https://img.shields.io/npm/v/lawang.svg)](https://www.npmjs.com/package/lawang)
+[![Downloads](https://img.shields.io/npm/dm/lawang.svg)](https://www.npmjs.com/package/lawang)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.17-339933.svg)](packages/agent/package.json)
 
-Local-first remote access for your own machine.
+[Quick Start](#quick-start) •
+[Comparison](#lawang-vs-other-remote-solutions) •
+[Features](#key-features) •
+[Setup](#setup-guide) •
+[FAQ](#frequently-asked-questions) •
+[Docs](docs/DOCUMENTATION.md)
 
-Run one command on your laptop or server, scan a QR code from a phone, tablet,
-or another browser, and open a secure remote workspace for your project. Lawang
-is built for developer workflows: terminal, files, code editing, Git, localhost
-proxying, audit logs, host controls, and an early remote desktop mode.
+---
 
-No account. No central cloud dashboard. No hosted broker that stores your
-commands, files, or session data. The host remains in control.
+## Development Status
 
-```bash
-npm i -g lawang
-lawang start
-```
+Lawang is open source and under active development.
 
-Open the QR page shown in the terminal, pair the browser, approve the request on
-the host, and start working.
+The current package is usable for local-first remote developer workflows, but a
+few areas are still considered early:
 
-## Why Lawang
+- Remote desktop currently targets macOS hosts.
+- Windows support exists in parts of the codebase, but is not fully tested.
+- Desktop streaming is a preview implementation, not a WebRTC-grade streamer
+  yet.
 
-Most remote access tools either rely on SSH setup, a cloud dashboard, a native
-mobile app, or a third-party relay. Lawang is intentionally smaller:
+The project is intentionally public so the security model, pairing flow, and
+host-side behavior can be inspected.
 
-- **Local-first**: the agent runs on your machine and serves the browser UI.
-- **Browser-native**: use any modern browser on phone, tablet, or desktop.
-- **Developer-focused**: terminal, files, Git, snippets, logs, and local dev
-  ports are in one session.
-- **Explicit trust model**: QR pairing, host approval, permissions, optional
-  PIN, trusted device revoke, session revoke, and audit logs.
-- **Open source**: inspect the code and run it yourself.
+---
 
-## Features
+## Why Lawang?
 
-### Remote workspace
+Remote access for developer work often has tradeoffs:
 
-- Overview dashboard with host status, active sessions, permissions, and quick
-  navigation.
-- Browser terminal powered by xterm.js and `node-pty`.
-- Reconnect-safe PTY sessions with output replay after short disconnects.
-- One-shot command chat with formatted output for JSON, diffs, and exit codes.
-- Command palette with navigation and session actions.
+- **SSH is powerful but setup-heavy**: keys, firewall rules, known hosts, and
+  mobile ergonomics can be painful.
+- **VPN is often too much** for one quick terminal or file edit.
+- **Desktop remote tools focus on screens**, not terminal, files, Git, or local
+  dev ports.
+- **Cloud dashboards add trust surface** and often require accounts.
+- **Phone workflows are awkward** when terminal, files, and Git live in
+  separate tools.
 
-### Files and code
+Lawang takes a smaller local-first approach:
 
-- Browse the project root from the browser.
-- Read, edit, save, upload, rename, delete, and create folders inside the
-  sandboxed root.
-- Search the current folder and drag files into the browser to upload.
-- Monaco editor for browser-based code editing.
-- File preview guards for large, binary, and outside-root paths.
+- **One command** starts the host agent.
+- **QR pairing** gives a browser a short-lived path into the host.
+- **Host approval by default** keeps the machine in control.
+- **All-in-one workspace** includes terminal, files, code editing, Git, proxy,
+  audit log, host controls, and desktop preview.
+- **No account required** and no hosted broker stores your terminal output or
+  project files.
+- **Open source** so the implementation is auditable.
 
-### Git workflow
-
-- Git status, diff, and recent log.
-- Stage and unstage files.
-- Commit, pull, and push from the web UI.
-- Push supports first-time upstream setup when the current branch has no
-  tracking branch.
-
-### Remote desktop preview
-
-- Desktop tab for screen viewing on macOS hosts.
-- Mouse movement, clicks, keyboard events, and text input when the session has
-  `screen:control`.
-- Fit and large view modes for mobile and desktop browsers.
-- macOS requires Screen Recording permission for view and Accessibility
-  permission for control.
-
-### Localhost proxy
-
-- Expose local dev servers such as `localhost:3000` and `localhost:5173`.
-- Access proxied apps at `/proxy/<port>/...`.
-- Use an explicit allow-list or `--proxy open` for development.
-
-### Device and session control
-
-- One-time QR pairing with explicit host approval by default.
-- Permission presets: full access, read-only, or terminal-only.
-- Optional pairing PIN with `--pair-pin`.
-- Optional LAN-only pairing with `--pair-lan-only`.
-- Trusted devices can skip future approval and can be revoked.
-- Active sessions can be listed and revoked from CLI or browser.
-- Pairing tokens can be rotated without restarting the agent.
-
-### Host utilities
-
-- Host power actions from the UI: sleep, shutdown, reboot, and lock.
-- Battery indicator in the browser session.
-- `--keep-awake` mode to prevent host sleep while the agent is running.
-- `--unattended` mode for trusted environments.
-- `--session-ttl` for maximum session lifetime.
-
-### Audit and safety
-
-- Local JSONL audit log at `~/.lawang/audit.log`.
-- Browser audit viewer with filters and search.
-- Security smoke test via `lawang verify`.
-- Rate limits, origin checks, hashed tokens, sandboxed file paths, and bounded
-  WebSocket frames.
+---
 
 ## Quick Start
 
-### Install from npm
+Install globally:
 
 ```bash
-npm i -g lawang
+npm install -g lawang
 lawang start
 ```
 
-Then open one of the URLs printed by the CLI:
+Then:
 
-- `http://localhost:3999/qr` for a fullscreen QR on the host.
-- The LAN or tunnel pair URL for another device.
+1. Open the QR URL printed by the CLI, or visit `http://localhost:3999/qr`.
+2. Scan the QR from another device.
+3. Approve the pairing request on the host CLI.
+4. Use the browser workspace.
 
-### Useful start modes
+For a more locked-down unattended setup:
 
 ```bash
-lawang start --no-tunnel
-lawang start --proxy 3000,5173
-lawang start --proxy open
-lawang start --keep-awake
-lawang start --pair-pin 123456
 lawang start --unattended-lan-only --pair-pin 123456 --session-ttl 120
 ```
 
-### Admin commands
+This keeps the host awake, skips the interactive approval prompt for valid
+pairing tokens, limits pairing to LAN/private addresses, requires a PIN, and
+expires sessions after 120 minutes.
+
+---
+
+## Lawang vs Other Remote Solutions
+
+| Feature | **Lawang** | SSH Client | TeamViewer | Chrome Remote Desktop | Local Tunnel |
+|---------|:----------:|:----------:|:----------:|:---------------------:|:------------:|
+| Browser-based client | Yes | No | No | Yes | Partial |
+| Mobile-friendly terminal | Yes | Partial | No | No | No |
+| File explorer | Yes | No | Partial | No | No |
+| Built-in code editor | Yes | No | No | No | No |
+| Git panel | Yes | No | No | No | No |
+| Localhost proxy | Yes | Manual | No | No | Yes |
+| QR pairing | Yes | No | No | No | No |
+| Host approval flow | Yes | Key-based | Account-based | Account-based | No |
+| Permission scopes | Yes | No | No | No | No |
+| Trusted device revoke | Yes | Manual | Account-based | Account-based | No |
+| Audit log | Yes | Shell history only | No | No | No |
+| Remote desktop | macOS preview | No | Yes | Yes | No |
+| No account required | Yes | Yes | No | No | Yes |
+| Open source | Yes | Varies | No | No | Varies |
+
+Lawang is not trying to replace every remote access product. It is optimized for
+developers who want a self-hosted browser workspace around their own machine.
+
+---
+
+## Key Features
+
+| Feature | What it does | Why it matters |
+|---------|--------------|----------------|
+| **Overview dashboard** | Shows host status, active sessions, permissions, and quick actions | You land in a useful workspace after pairing |
+| **Remote terminal** | Runs a real PTY shell through WebSocket | Work like you are at the host machine |
+| **Reconnect-safe sessions** | Keeps terminal sessions alive across short disconnects | Phone sleep or Wi-Fi changes do not immediately kill the shell |
+| **File explorer** | Browse, upload, download, rename, delete, and create folders | Manage project files without SSH/SFTP |
+| **Code editor** | Monaco-powered browser editor | Make quick source edits from another device |
+| **Git workflow** | Status, diff, log, stage, commit, pull, and push | Handle common Git tasks from the browser |
+| **Command chat** | Run one-shot commands with formatted output | Quick commands without switching terminal context |
+| **Command palette** | Navigate and run session actions with `Cmd-K` / `Ctrl-K` | Faster keyboard-driven workflow |
+| **Localhost proxy** | Exposes selected local dev ports under `/proxy/<port>` | Test local web apps from phone or tablet |
+| **Remote desktop preview** | macOS screen view and optional input control | Inspect or control the host when terminal is not enough |
+| **Host controls** | Lock, sleep, reboot, or shut down from the UI | Manage the host at the end of a session |
+| **Pairing PIN** | Adds an optional PIN on top of QR token pairing | Useful for unattended or shared-network setups |
+| **LAN-only pairing** | Restricts pairing to local/private hostnames | Safer unattended mode |
+| **Audit log** | Writes JSONL events locally | Review access and sensitive operations |
+| **No account required** | Runs from your machine, no hosted dashboard | Keeps the trust boundary small |
+
+---
+
+## Available Platforms
+
+### CLI Agent
 
 ```bash
-lawang rotate
-lawang sessions
-lawang sessions --revoke <session-id>
-lawang devices
-lawang devices --revoke <device-id>
-lawang history
-lawang service-status
-lawang verify
+npm install -g lawang
 ```
 
-## Security Model
+Host support:
 
-Lawang is designed for access to machines you own or administer.
+- macOS: primary target
+- Linux: core terminal, files, Git, proxy, audit, and service support
+- Windows: partial, not yet fully tested
 
-- Pairing tokens are random, one-time, time-limited, and stored only as hashes.
-- Session tokens are random and stored only as hashes in memory.
-- Optional pairing PINs are hashed in memory before comparison.
-- Every API and WebSocket path checks session permissions.
-- File APIs are sandboxed to the selected project root.
-- WebSocket input and frame sizes are capped.
-- Pairing, sessions, file writes, Git actions, proxy usage, host power actions,
-  and desktop control events are logged locally.
+### Web Client
 
-Recommended production-like local setup:
+The browser UI is served by the agent.
 
-```bash
-lawang start --unattended-lan-only --pair-pin <pin> --session-ttl 120
+Supported clients:
+
+- Chrome, Safari, Firefox, Edge
+- iOS and Android browsers
+- Desktop browsers on macOS, Linux, and Windows
+
+### Remote Desktop Preview
+
+Current target:
+
+- macOS host with Screen Recording permission for view
+- macOS host with Accessibility permission for input control
+
+---
+
+## Use Cases
+
+### Case 1: Check a project from your phone
+
+Problem: you are away from your desk and need to inspect logs or run a quick
+command.
+
+```text
+1. Open the Lawang pair URL
+2. Pair and approve the device
+3. Open Terminal or Chat
+4. Run the command and review output
 ```
 
-Run the built-in smoke test:
+### Case 2: Test a local web app on a real phone
+
+Problem: your app runs on `localhost:5173`, but you want to see it on a mobile
+browser.
 
 ```bash
-lawang verify
+lawang start --proxy 5173
 ```
 
-## Requirements
+Open `/proxy/5173/` inside the Lawang session.
 
-- Node.js `>= 18.17`
-- macOS or Linux for core terminal, files, Git, and host utilities
-- macOS for current remote desktop preview
-- Optional `cloudflared` for public tunnel support
+### Case 3: Make a small fix without opening an IDE
 
-Windows compatibility exists in parts of the codebase, but it is not yet a
-fully tested target.
+Problem: you need a quick config or source change.
 
-## Development
+```text
+1. Open Files
+2. Search the current folder
+3. Edit in the browser editor
+4. Commit and push from Git
+```
 
-Clone the repository:
+### Case 4: Keep a trusted machine reachable on LAN
+
+Problem: you want the host ready without approving every session interactively.
 
 ```bash
-git clone https://github.com/alfianm/lawang-app.git
-cd lawang-app
+lawang start --unattended-lan-only --pair-pin 123456 --session-ttl 120
+```
+
+This combines keep-awake, auto-approve for valid tokens, LAN-only pairing, a PIN,
+and session expiry.
+
+---
+
+## Setup Guide
+
+### Option 1 - NPM package
+
+Recommended for normal use:
+
+```bash
+npm install -g lawang
+lawang start
+```
+
+### Option 2 - Run from source
+
+Recommended for contributors:
+
+```bash
+git clone https://github.com/alfianm/lawang.git
+cd lawang
 npm install
 npm run build
 npm start
 ```
 
-Run the agent and web app separately during development:
+Development mode:
 
 ```bash
 npm run dev:agent
 npm run dev:web
 ```
 
-The web dev server runs separately, while the production build is copied into
-`packages/agent/public` and served by the agent.
+### First Run and QR Pairing
 
-## Repository Layout
+On startup, Lawang creates a short-lived pairing token and shows a QR/pair URL.
+
+New devices go through this flow:
+
+1. Browser opens `/#/pair?token=...`.
+2. Browser sends device label and fingerprint.
+3. Host approves, rejects, or grants a permission scope.
+4. Browser receives a session token.
+5. Every API and WebSocket request checks that session token.
+
+Optional hardening:
+
+```bash
+lawang start --pair-pin 123456
+lawang start --pair-lan-only
+lawang start --session-ttl 120
+```
+
+### Remote Desktop Setup on macOS
+
+For screen viewing:
 
 ```text
-packages/agent  Node.js CLI agent, Fastify server, REST APIs, WebSocket terminal
-packages/web    React browser client, terminal, files, Git, desktop, audit UI
+System Settings -> Privacy & Security -> Screen Recording
+Enable the terminal app running Lawang
+```
+
+For mouse and keyboard control:
+
+```text
+System Settings -> Privacy & Security -> Accessibility
+Enable the terminal app running Lawang
+```
+
+Restart Lawang after changing macOS permissions.
+
+### Local Sites Proxy
+
+Expose selected local ports:
+
+```bash
+lawang start --proxy 3000,5173
+```
+
+Open them in the session:
+
+```text
+/proxy/3000/
+/proxy/5173/
+```
+
+Development-only open mode:
+
+```bash
+lawang start --proxy open
+```
+
+### CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `lawang start` | Start the local agent and pairing flow |
+| `lawang start --no-tunnel` | Disable public tunnel attempts |
+| `lawang start --proxy 3000,5173` | Expose selected local dev ports |
+| `lawang start --unattended` | Auto-approve valid pairing tokens and keep host awake |
+| `lawang start --unattended-lan-only` | Unattended mode limited to LAN/private pairing hosts |
+| `lawang start --pair-pin <pin>` | Require an extra PIN while pairing |
+| `lawang rotate` | Rotate the QR pairing token without restarting |
+| `lawang sessions` | List active sessions |
+| `lawang sessions --revoke <id>` | Revoke an active session |
+| `lawang devices` | List trusted devices |
+| `lawang devices --revoke <id>` | Revoke a trusted device |
+| `lawang history` | Show past sessions from audit log |
+| `lawang install-service` | Generate systemd or launchd service unit |
+| `lawang service-status` | Show service installation status |
+| `lawang verify` | Run security smoke checks |
+
+---
+
+## Frequently Asked Questions
+
+### Is Lawang secure?
+
+Lawang is designed to keep the trust boundary local and inspectable:
+
+- QR tokens are random, short-lived, one-time, and stored only as hashes.
+- Session tokens are random and stored only as hashes in memory.
+- Optional pairing PINs are hashed before comparison.
+- Host approval is required by default.
+- Permissions are checked on every API and WebSocket path.
+- File access is sandboxed to the project root.
+- Sensitive actions are recorded in a local audit log.
+
+You should still expose it only in environments you trust and use
+`--pair-pin`, `--pair-lan-only`, and `--session-ttl` for unattended hosts.
+
+### Do I need an account?
+
+No. Lawang does not require a hosted account or cloud dashboard.
+
+### Do I need to open ports?
+
+For LAN use, no port forwarding is needed if your device can reach the host on
+the same network.
+
+For remote internet access, Lawang can attempt a `cloudflared` tunnel when
+available. You can also disable tunnel behavior:
+
+```bash
+lawang start --no-tunnel
+```
+
+### Does it work offline?
+
+Yes, for LAN/local use. Use `--no-tunnel` if you want to keep it local-only.
+
+### Can I use it with AI coding tools?
+
+Yes. Any CLI tool that runs on the host can be used from the Lawang terminal,
+including coding agents, linters, test runners, and deploy scripts.
+
+### What platforms are supported?
+
+Host:
+
+- macOS: primary target
+- Linux: supported for core workflows
+- Windows: partial, still needs more testing
+
+Client:
+
+- Any modern browser
+- Phone, tablet, or desktop browser
+
+### Is this a replacement for SSH?
+
+Not exactly. SSH remains the right tool for many server workflows. Lawang is a
+browser workspace around a machine you own, with QR pairing, files, Git, local
+proxying, audit logs, and a mobile-friendly UI.
+
+---
+
+## Tech Stack
+
+- **Runtime:** Node.js and TypeScript
+- **CLI:** Commander
+- **HTTP server:** Fastify
+- **WebSocket terminal:** `ws` and `node-pty`
+- **Validation:** Zod
+- **Git:** `simple-git`
+- **QR:** `qrcode` and `qrcode-terminal`
+- **Web client:** React, Vite, Tailwind CSS
+- **Terminal UI:** xterm.js
+- **Editor:** Monaco
+- **Icons:** lucide-react
+- **Optional tunnel:** cloudflared
+
+Repository layout:
+
+```text
+packages/agent  CLI agent, server, API routes, terminal, security, audit
+packages/web    Browser UI for pairing and remote workspace
 scripts/        Build utilities
 docs/           Technical documentation
-site/           Static documentation site
+site/           Static docs site
 ```
 
-Runtime data is stored under `~/.lawang/`:
+Runtime files:
 
 ```text
-config.json   machine settings and trusted devices
-audit.log     JSONL audit log
-agent.sock    local control socket on Unix-like systems
+~/.lawang/config.json   machine settings and trusted devices
+~/.lawang/audit.log     local JSONL audit events
+~/.lawang/agent.sock    local control socket on Unix-like hosts
 ```
 
-## Documentation
+---
 
-- [Technical documentation](docs/DOCUMENTATION.md)
-- [Static website](site/)
-- [API reference](site/api.html)
-- [Product requirements and roadmap](prd_remote_access_app.md)
-- [Changelog](CHANGELOG.md)
+## Troubleshooting
 
-## Roadmap
+### Port 3999 is already in use
 
-Near-term priorities:
+Run on another port:
 
-- Broader remote desktop support and better streaming performance.
-- More granular permission presets.
-- Stronger network allow-list controls.
-- Multi-terminal management.
-- Better file search and bulk operations.
-- More complete Windows support.
+```bash
+lawang start --port 4100
+```
 
-See [prd_remote_access_app.md](prd_remote_access_app.md) for the longer product
-plan.
+### Cloudflared tunnel failed
+
+Use LAN-only mode:
+
+```bash
+lawang start --no-tunnel
+```
+
+Or install `cloudflared` manually and restart Lawang.
+
+### Screen Recording or Accessibility permission denied on macOS
+
+Grant permissions in:
+
+```text
+System Settings -> Privacy & Security
+```
+
+Enable the terminal app that runs Lawang, then restart the agent.
+
+### QR code expired
+
+Rotate the pairing token:
+
+```bash
+lawang rotate
+```
+
+Or restart:
+
+```bash
+lawang start
+```
+
+### Phone cannot connect
+
+Check:
+
+- Host and phone are on the same network for LAN mode.
+- The URL uses the host LAN IP, not `localhost`, when opened from another
+  device.
+- Firewall settings allow the selected Lawang port.
+- Tunnel mode is available if connecting from outside the LAN.
+
+### Session was revoked or expired
+
+Pair again with the latest QR token. If `--session-ttl` is enabled, sessions
+expire after the configured maximum lifetime even if active.
+
+---
+
+## Support and Links
+
+- **NPM:** [npmjs.com/package/lawang](https://www.npmjs.com/package/lawang)
+- **GitHub:** [github.com/alfianm/lawang](https://github.com/alfianm/lawang)
+- **Issues:** [github.com/alfianm/lawang/issues](https://github.com/alfianm/lawang/issues)
+- **Technical docs:** [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md)
+- **Static docs site:** [site/](site/)
+- **Changelog:** [CHANGELOG.md](CHANGELOG.md)
+
+---
 
 ## Contributing
 
 Contributions are welcome.
 
-Good first areas:
+Good areas to help:
 
-- UI polish and accessibility improvements.
-- Documentation and examples.
-- Test coverage for CLI and API behavior.
-- Platform-specific fixes for Linux, macOS, and Windows.
-- Security hardening and threat-model review.
+- UI polish and accessibility
+- Linux and Windows testing
+- Remote desktop performance
+- Security hardening
+- Documentation and examples
+- API and CLI test coverage
 
-Before opening a pull request:
+Before opening a PR:
 
 ```bash
 npm run build
 ```
 
-If your change affects pairing, permissions, sessions, file access, proxying, or
-desktop control, include a short security note in the PR description.
+If a change touches pairing, permissions, sessions, file access, proxying, or
+desktop control, include a short security note in the pull request.
+
+---
 
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+Built for developers who want remote access without handing their workflow to a
+third-party dashboard.
