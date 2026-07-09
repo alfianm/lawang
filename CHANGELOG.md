@@ -4,7 +4,12 @@ All notable changes to Lawang are documented here. Format follows [Keep a Change
 
 ## [Unreleased]
 
-## [0.9.0] - 2026-07-09
+## [1.1.1] - 2026-07-09
+
+### Changed
+- Align README / changelog headings with the published `1.1.0` release line.
+
+## [1.1.0] - 2026-07-09
 
 ### Added
 - **Clipboard bridge**: copy text between the browser device and the host clipboard (`GET/PUT /api/clipboard`). Header actions **From host** / **To host**, plus a paste modal when the browser blocks clipboard access. Supports macOS (`pbcopy`/`pbpaste`), Linux (`wl-clipboard` / `xclip` / `xsel`), and Windows (PowerShell).
@@ -20,6 +25,7 @@ All notable changes to Lawang are documented here. Format follows [Keep a Change
 - Permission-aware UI: Files/Git write actions, Proxy/Ops tabs, and Overview quick actions respect session scopes.
 - Command palette **Open session history** now opens the sessions modal.
 - Ops share create flow refreshes the active-share list after creating a link.
+- Version line moves to `1.1.0` because `1.0.x` was already reserved on npm from an older package history.
 
 ### Security
 - Clipboard read/write and device revoke are audited (`clipboard_read`, `clipboard_write`, existing `trusted_device_revoked`).

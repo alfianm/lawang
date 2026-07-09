@@ -49,9 +49,9 @@ lawang start --unattended-lan-only --pair-pin 123456 --session-ttl 120
 This keeps the host awake, auto-approves valid pairing tokens, limits pairing to
 LAN/private addresses, requires a PIN, and expires sessions after 120 minutes.
 
-## What's New in 0.9.0
+## What's New in 1.1.0
 
-Lawang 0.9.0 improves remote-from-phone workflows:
+Lawang 1.1.0 improves remote-from-phone workflows:
 
 - Clipboard bridge between browser device and host.
 - Attention notifications when terminals or process jobs need input.
