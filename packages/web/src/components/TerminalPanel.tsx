@@ -197,13 +197,24 @@ export function TerminalPanel(props: { sessionToken: string; onAuthFailed: () =>
   );
 }
 
-const KEYS: { label: string; data: string; node?: React.ReactNode; title?: string }[] = [
+const KEYS: { label: string; data: string; node?: React.ReactNode; title?: string; sticky?: boolean }[] = [
+  { label: "Ctrl", data: "", sticky: true, title: "Hold Ctrl for next key" },
+  { label: "Alt", data: "", sticky: true, title: "Hold Alt for next key" },
   { label: "Esc", data: "\x1b" },
   { label: "Tab", data: "\t" },
   { label: "Ctrl+C", data: "\x03" },
   { label: "Ctrl+L", data: "\x0c" },
   { label: "Ctrl+D", data: "\x04" },
   { label: "Ctrl+Z", data: "\x1a" },
+  { label: "Ctrl+A", data: "\x01" },
+  { label: "Ctrl+E", data: "\x05" },
+  { label: "Ctrl+U", data: "\x15" },
+  { label: "Ctrl+W", data: "\x17" },
+  { label: "Ctrl+R", data: "\x12" },
+  { label: "Home", data: "\x1b[H", title: "Home" },
+  { label: "End", data: "\x1b[F", title: "End" },
+  { label: "PgUp", data: "\x1b[5~", title: "Page Up" },
+  { label: "PgDn", data: "\x1b[6~", title: "Page Down" },
   { label: "↑", data: "\x1b[A", node: <ArrowUp className="w-3.5 h-3.5" />, title: "Up" },
   { label: "↓", data: "\x1b[B", node: <ArrowDown className="w-3.5 h-3.5" />, title: "Down" },
   { label: "←", data: "\x1b[D", node: <ArrowLeft className="w-3.5 h-3.5" />, title: "Left" },
@@ -211,21 +222,75 @@ const KEYS: { label: string; data: string; node?: React.ReactNode; title?: strin
 ];
 
 function ShortcutBar({ onKey }: { onKey: (data: string) => void }) {
+  const [mods, setMods] = useState<{ ctrl: boolean; alt: boolean }>({ ctrl: false, alt: false });
+  const letters = "abcdefghijklmnopqrstuvwxyz".split("");
+
+  function press(k: (typeof KEYS)[number]) {
+    if (k.sticky && k.label === "Ctrl") {
+      setMods((m) => ({ ctrl: !m.ctrl, alt: false }));
+      return;
+    }
+    if (k.sticky && k.label === "Alt") {
+      setMods((m) => ({ alt: !m.alt, ctrl: false }));
+      return;
+    }
+    if (k.data) onKey(k.data);
+  }
+
+  function pressLetter(ch: string) {
+    if (mods.ctrl) {
+      const code = ch.toUpperCase().charCodeAt(0) - 64;
+      onKey(String.fromCharCode(code));
+      setMods({ ctrl: false, alt: false });
+      return;
+    }
+    if (mods.alt) {
+      onKey(`\x1b${ch}`);
+      setMods({ ctrl: false, alt: false });
+      return;
+    }
+    onKey(ch);
+  }
+
   return (
     <div className="border-t border-line bg-panel">
       <div className="flex gap-1 overflow-x-auto px-2 py-1 scrollbar-thin">
-        {KEYS.map((k) => (
-          <button
-            key={k.label}
-            title={k.title || k.label}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => onKey(k.data)}
-            className="shrink-0 inline-flex items-center justify-center min-w-[2.25rem] h-8 px-2 text-xs font-mono text-ink/90 bg-bg border border-line rounded hover:border-accent/40 active:bg-line"
-          >
-            {k.node ? k.node : k.label}
-          </button>
-        ))}
+        {KEYS.map((k) => {
+          const active = (k.label === "Ctrl" && mods.ctrl) || (k.label === "Alt" && mods.alt);
+          return (
+            <button
+              key={k.label}
+              title={k.title || k.label}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => press(k)}
+              className={`shrink-0 inline-flex items-center justify-center min-w-[2.25rem] h-8 px-2 text-xs font-mono rounded border active:bg-line ${
+                active
+                  ? "bg-accent/20 border-accent text-accent"
+                  : "text-ink/90 bg-bg border-line hover:border-accent/40"
+              }`}
+            >
+              {k.node ? k.node : k.label}
+            </button>
+          );
+        })}
       </div>
+      {(mods.ctrl || mods.alt) && (
+        <div className="flex gap-1 overflow-x-auto px-2 pb-1 scrollbar-thin">
+          <span className="shrink-0 self-center text-[10px] font-mono uppercase tracking-wider text-muted px-1">
+            {mods.ctrl ? "ctrl+" : "alt+"}
+          </span>
+          {letters.map((ch) => (
+            <button
+              key={ch}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => pressLetter(ch)}
+              className="shrink-0 inline-flex items-center justify-center w-7 h-7 text-xs font-mono text-ink/90 bg-bg border border-line rounded hover:border-accent/40"
+            >
+              {ch}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

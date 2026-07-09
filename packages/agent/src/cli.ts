@@ -121,6 +121,10 @@ program
     let tunnel: TunnelHandle = { url: null, provider: "none", stop: async () => undefined };
     let getTunnelUrl = () => tunnel.url;
 
+    const lanIp = pickLanAddress();
+    const localUrl = `http://localhost:${opts.port}`;
+    const lanUrl = lanIp ? `http://${lanIp}:${opts.port}` : null;
+
     let currentPairUrl = "";
     let rotateAndAnnouncePtr: (announce: boolean) => Promise<{ pairUrl: string; token: string; expiresAt: number }> = async () => { throw new Error("not_ready"); };
     const server = await startServer({
@@ -136,6 +140,8 @@ program
       publicDir: fs.existsSync(publicDir) ? publicDir : null,
       getTunnelUrl: () => getTunnelUrl(),
       getPairUrl: () => currentPairUrl,
+      getLocalUrl: () => localUrl,
+      getLanUrl: () => lanUrl,
       rotatePairing: () => rotateAndAnnouncePtr(true),
       autoApprove: autoApproveEnabled && autoApproveScope ? { preset: autoApproveScope } : undefined,
       security: {
@@ -176,10 +182,6 @@ program
     } catch (err) {
       log.warn(`Control socket failed: ${(err as Error).message}`);
     }
-
-    const lanIp = pickLanAddress();
-    const localUrl = `http://localhost:${opts.port}`;
-    const lanUrl = lanIp ? `http://${lanIp}:${opts.port}` : null;
 
     const qrSize = (["small","large","off"] as const).includes(opts.qrSize) ? opts.qrSize as "small"|"large"|"off" : "small";
     const pairBase = tunnel.url || lanUrl || localUrl;

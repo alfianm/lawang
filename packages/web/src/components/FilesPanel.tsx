@@ -14,7 +14,13 @@ const CodeEditor = lazy(() => import("./CodeEditor").then(m => ({ default: m.Cod
 
 type Toast = { id: number; tone: "ok" | "error"; text: string };
 
-export function FilesPanel(props: { sessionToken: string; onAuthFailed: () => void; rootName: string }) {
+export function FilesPanel(props: {
+  sessionToken: string;
+  onAuthFailed: () => void;
+  rootName: string;
+  canWrite?: boolean;
+}) {
+  const canWrite = props.canWrite !== false;
   const [cwd, setCwd] = useState<string>(".");
   const [data, setData] = useState<ListDirResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -174,6 +180,7 @@ export function FilesPanel(props: { sessionToken: string; onAuthFailed: () => vo
     <div
       className="relative h-full flex flex-col md:flex-row min-h-0"
       onDragOver={(e) => {
+        if (!canWrite) return;
         e.preventDefault();
         if (e.dataTransfer.types.includes("Files")) setDragging(true);
       }}
@@ -183,6 +190,7 @@ export function FilesPanel(props: { sessionToken: string; onAuthFailed: () => vo
       onDrop={(e) => {
         e.preventDefault();
         setDragging(false);
+        if (!canWrite) return;
         void handleUpload(e.dataTransfer.files);
       }}
     >
@@ -198,6 +206,7 @@ export function FilesPanel(props: { sessionToken: string; onAuthFailed: () => vo
         <ActionBar
           query={query}
           onQueryChange={setQuery}
+          canWrite={canWrite}
           onNewFile={handleNewFile}
           onNewDir={handleNewDir}
           onUploadClick={() => fileInputRef.current?.click()}
@@ -235,6 +244,7 @@ export function FilesPanel(props: { sessionToken: string; onAuthFailed: () => vo
                   <EntryRow
                     key={e.path}
                     entry={e}
+                    canWrite={canWrite}
                     onOpen={() => navigate(e)}
                     onRename={() => handleRename(e)}
                     onDelete={() => handleDelete(e)}
@@ -256,6 +266,7 @@ export function FilesPanel(props: { sessionToken: string; onAuthFailed: () => vo
           <FilePreview
             sessionToken={props.sessionToken}
             entry={openFile}
+            canWrite={canWrite}
             onClose={() => setOpenFile(null)}
             onAuthFailed={props.onAuthFailed}
             onSaved={() => { reload(); }}
@@ -268,7 +279,7 @@ export function FilesPanel(props: { sessionToken: string; onAuthFailed: () => vo
         )}
       </div>
 
-      {dragging && (
+      {dragging && canWrite && (
         <div className="absolute inset-0 z-30 bg-accent/10 border-2 border-accent/60 border-dashed flex items-center justify-center pointer-events-none">
           <div className="rounded-md border border-accent/50 bg-panel px-4 py-3 text-sm text-ink shadow-lg">
             <Upload className="w-5 h-5 text-accent inline-block mr-2" />
@@ -303,17 +314,24 @@ export function FilesPanel(props: { sessionToken: string; onAuthFailed: () => vo
 function ActionBar(props: {
   query: string;
   onQueryChange: (value: string) => void;
+  canWrite: boolean;
   onNewFile: () => void;
   onNewDir: () => void;
   onUploadClick: () => void;
 }) {
   return (
     <div className="border-b border-line bg-panel/40">
-      <div className="flex items-center gap-1 px-2 py-1">
-        <ToolButton onClick={props.onNewFile} title="New file" icon={<FilePlus className="w-4 h-4" />} label="File" />
-        <ToolButton onClick={props.onNewDir} title="New folder" icon={<FolderPlus className="w-4 h-4" />} label="Folder" />
-        <ToolButton onClick={props.onUploadClick} title="Upload files" icon={<Upload className="w-4 h-4" />} label="Upload" />
-      </div>
+      {props.canWrite ? (
+        <div className="flex items-center gap-1 px-2 py-1">
+          <ToolButton onClick={props.onNewFile} title="New file" icon={<FilePlus className="w-4 h-4" />} label="File" />
+          <ToolButton onClick={props.onNewDir} title="New folder" icon={<FolderPlus className="w-4 h-4" />} label="Folder" />
+          <ToolButton onClick={props.onUploadClick} title="Upload files" icon={<Upload className="w-4 h-4" />} label="Upload" />
+        </div>
+      ) : (
+        <div className="px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider text-muted">
+          Read-only session
+        </div>
+      )}
       <div className="px-2 pb-2">
         <label className="flex items-center gap-2 rounded border border-line bg-bg px-2 py-1.5 text-xs text-muted">
           <Search className="w-3.5 h-3.5 shrink-0" />
@@ -352,7 +370,13 @@ function ToolButton(props: { onClick: () => void; title: string; icon: React.Rea
   );
 }
 
-function EntryRow(props: { entry: DirEntry; onOpen: () => void; onRename: () => void; onDelete: () => void }) {
+function EntryRow(props: {
+  entry: DirEntry;
+  canWrite: boolean;
+  onOpen: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   return (
     <li className="relative">
@@ -364,16 +388,18 @@ function EntryRow(props: { entry: DirEntry; onOpen: () => void; onRename: () => 
             {props.entry.type === "dir" ? "" : formatSize(props.entry.size)}
           </span>
         </button>
-        <button
-          onClick={() => setMenuOpen((v) => !v)}
-          className="px-2 py-2 text-muted hover:text-ink"
-          title="More"
-          aria-label="More actions"
-        >
-          <MoreVertical className="w-4 h-4" />
-        </button>
+        {props.canWrite && (
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            className="px-2 py-2 text-muted hover:text-ink"
+            title="More"
+            aria-label="More actions"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
+        )}
       </div>
-      {menuOpen && (
+      {menuOpen && props.canWrite && (
         <>
           <button className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
           <div className="absolute right-2 top-9 z-20 w-40 rounded border border-line bg-panel shadow-lg text-sm overflow-hidden">
@@ -432,11 +458,13 @@ function Toolbar(props: {
 function FilePreview(props: {
   sessionToken: string;
   entry: DirEntry;
+  canWrite?: boolean;
   onClose: () => void;
   onAuthFailed: () => void;
   onSaved: () => void;
   onError: (e: unknown) => void;
 }) {
+  const canWrite = props.canWrite !== false;
   const [data, setData] = useState<FileReadResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -473,7 +501,7 @@ function FilePreview(props: {
   }
 
   const dlUrl = downloadUrl(props.sessionToken, props.entry.path);
-  const canEdit = !!data && !data.isBinary;
+  const canEdit = canWrite && !!data && !data.isBinary;
 
   return (
     <div className="h-full flex flex-col min-h-0">
@@ -486,6 +514,7 @@ function FilePreview(props: {
           <div className="text-sm truncate">{props.entry.name}</div>
           <div className="text-[11px] text-muted font-mono truncate">
             {props.entry.path} • {formatSize(data?.size ?? props.entry.size)} • {data?.mime ?? "…"}
+            {!canWrite ? " • read-only" : ""}
           </div>
         </div>
         {canEdit && !editing && (

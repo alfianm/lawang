@@ -144,4 +144,25 @@ export class TerminalSessionStore {
     if (!session || session.exited) return false;
     try { session.term.pty.resize(cols, rows); return true; } catch { return false; }
   }
+
+  /** Snapshot of live terminal sessions for attention / agent cards. */
+  listLive(): Array<{
+    sessionId: string;
+    attached: boolean;
+    exited: boolean;
+    bufferTail: string;
+  }> {
+    return [...this.sessions.values()]
+      .filter((s) => !s.exited)
+      .map((s) => {
+        const text = s.buffer.toString("utf8");
+        const bufferTail = text.length > 4000 ? text.slice(text.length - 4000) : text;
+        return {
+          sessionId: s.sessionId,
+          attached: Boolean(s.listener),
+          exited: s.exited,
+          bufferTail,
+        };
+      });
+  }
 }

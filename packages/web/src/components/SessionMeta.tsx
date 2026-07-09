@@ -29,6 +29,14 @@ export function SessionMeta({ sessionToken, currentSessionId, onAuthFailed }: Pr
     return () => { cancelled = true; };
   }, [sessionToken]);
 
+  useEffect(() => {
+    function onOpenHistory() {
+      void loadSessions();
+    }
+    window.addEventListener("lawang:open-history", onOpenHistory);
+    return () => window.removeEventListener("lawang:open-history", onOpenHistory);
+  }, [sessionToken]);
+
   async function loadSessions() {
     setOpen(true);
     setLoading(true);

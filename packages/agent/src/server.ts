@@ -1,5 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import Fastify, { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fastifyStatic from "@fastify/static";
 import { WebSocketServer, WebSocket } from "ws";
@@ -24,7 +25,13 @@ import { readSessionHistory, queryEvents, eventTypeCounts } from "./lib/auditRea
 import { runOneShot, ExecError } from "./lib/exec";
 import { performPowerAction, powerCapabilities, PowerError, PowerAction } from "./lib/power";
 import { readBattery } from "./lib/battery";
-import { captureDesktopJpeg, desktopCapabilities, DesktopError, performDesktopInput } from "./lib/desktop";
+import {
+  captureDesktopJpeg,
+  desktopCapabilities,
+  DesktopError,
+  openDesktopSettings,
+  performDesktopInput,
+} from "./lib/desktop";
 import {
   listSnippets, createSnippet, updateSnippet, deleteSnippet,
   recordUsage, exportSnippets, importSnippets, SnippetError,
@@ -38,6 +45,23 @@ import {
   probeListeningPorts,
   COMMON_DEV_PORTS,
 } from "./lib/localProxy";
+import { ProcessJobError, ProcessJobStore } from "./lib/processJobs";
+import {
+  clipboardCapabilities,
+  ClipboardError,
+  readHostClipboard,
+  writeHostClipboard,
+} from "./lib/clipboard";
+import { agentLabelFromCommand, detectAttention, looksLikeAgentCommand } from "./lib/attention";
+import {
+  buildContext as buildServiceContext,
+  probeStatus,
+  registrationSteps,
+  removeUnit,
+  runStep,
+  unregistrationSteps,
+  writeUnit,
+} from "./lib/service";
 
 interface AgentDeps {
   port: number;
@@ -52,6 +76,8 @@ interface AgentDeps {
   publicDir: string | null;
   getTunnelUrl: () => string | null;
   getPairUrl: () => string;
+  getLocalUrl: () => string;
+  getLanUrl: () => string | null;
   rotatePairing?: () => Promise<{ pairUrl: string; token: string; expiresAt: number }>;
   autoApprove?: { preset: PermissionPreset };
   security?: {
@@ -104,6 +130,7 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
   const fileLimiter = new RateLimiter(60_000, 240);
   const writeLimiter = new RateLimiter(60_000, 60);
   const desktopLimiter = new RateLimiter(60_000, 600);
+  const processJobs = new ProcessJobStore();
 
 
   // Bypass body parsing for raw uploads so req.raw can be piped into a file.
@@ -133,6 +160,8 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
     machineName: deps.machineName,
     version: deps.version,
     tunnelUrl: deps.getTunnelUrl(),
+    localUrl: deps.getLocalUrl(),
+    lanUrl: deps.getLanUrl(),
     pairUrl: deps.getPairUrl() || null,
     pairPinRequired: Boolean(deps.security?.pairPinHash),
     pairLanOnly: Boolean(deps.security?.pairLanOnly),
@@ -313,6 +342,9 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
   fastify.get("/api/session", async (req, reply) => {
     const s = authenticate(req, reply, "terminal");
     if (!s) return;
+    const tunnelUrl = deps.getTunnelUrl();
+    const localUrl = deps.getLocalUrl();
+    const lanUrl = deps.getLanUrl();
     return {
       sessionId: s.sessionId,
       machineName: deps.machineName,
@@ -321,6 +353,13 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
       deviceName: s.deviceName,
       createdAt: new Date(s.createdAt).toISOString(),
       expiresAt: s.expiresAt ? new Date(s.expiresAt).toISOString() : null,
+      reachability: {
+        tunnelUrl,
+        localUrl,
+        lanUrl,
+        preferred: tunnelUrl || lanUrl || localUrl,
+        mode: tunnelUrl ? "tunnel" : lanUrl ? "lan" : "local",
+      },
       agentMode: deps.mode || {
         autoApprove: Boolean(deps.autoApprove),
         keepAwake: false,
@@ -761,6 +800,456 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
     }
   });
 
+  // ---- Clipboard bridge (phone ↔ host) ----
+
+  fastify.get("/api/clipboard", async (req, reply) => {
+    if (!fileLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    try {
+      const result = await readHostClipboard();
+      recordEvent("clipboard_read", {
+        deviceName: session.deviceName,
+        metadata: {
+          sessionId: session.sessionId,
+          kind: result.kind,
+          bytes: result.text ? Buffer.byteLength(result.text) : 0,
+          truncated: result.truncated,
+        },
+      });
+      return result;
+    } catch (err) {
+      handleClipboardError(reply, err);
+    }
+  });
+
+  const ClipboardWriteBody = z.object({
+    text: z.string().min(1).max(64 * 1024),
+  });
+
+  fastify.put("/api/clipboard", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const parsed = ClipboardWriteBody.safeParse(req.body ?? {});
+    if (!parsed.success) { reply.code(400).send({ status: "invalid_request" }); return; }
+    try {
+      const result = await writeHostClipboard(parsed.data.text);
+      recordEvent("clipboard_write", {
+        deviceName: session.deviceName,
+        metadata: {
+          sessionId: session.sessionId,
+          bytes: result.bytes,
+        },
+      });
+      return result;
+    } catch (err) {
+      handleClipboardError(reply, err);
+    }
+  });
+
+  fastify.get("/api/clipboard/capabilities", async (req, reply) => {
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    return clipboardCapabilities();
+  });
+
+  // ---- Attention / agent babysitter ----
+
+  fastify.get("/api/attention", async (req, reply) => {
+    if (!fileLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+
+    const items: Array<{
+      id: string;
+      source: "terminal" | "process";
+      kind: string;
+      label: string;
+      snippet: string;
+      sessionId?: string;
+      jobId?: string;
+      command?: string | null;
+      agent?: string | null;
+      status?: string;
+    }> = [];
+
+    for (const term of deps.terminals.listLive()) {
+      const hit = detectAttention(term.bufferTail);
+      if (!hit) continue;
+      // Skip generic idle prompts unless this is the caller's own terminal.
+      if (hit.kind === "prompt" && term.sessionId !== session.sessionId) continue;
+      items.push({
+        id: `term:${term.sessionId}:${hit.kind}`,
+        source: "terminal",
+        kind: hit.kind,
+        label: hit.label,
+        snippet: hit.snippet,
+        sessionId: term.sessionId,
+      });
+    }
+
+    for (const job of processJobs.list()) {
+      if (job.status !== "running") continue;
+      const agent = agentLabelFromCommand(job.command) || agentLabelFromCommand(job.label || "");
+      const hit = detectAttention(job.log);
+      if (!hit || hit.kind === "prompt") continue;
+      items.push({
+        id: `job:${job.id}:${hit.kind}`,
+        source: "process",
+        kind: hit.kind,
+        label: hit.label,
+        snippet: hit.snippet,
+        jobId: job.id,
+        command: job.label || job.command,
+        agent,
+        status: job.status,
+      });
+    }
+
+    const agents = processJobs.list()
+      .filter((j) => j.status === "running" && (looksLikeAgentCommand(j.command) || looksLikeAgentCommand(j.label || "")))
+      .map((j) => ({
+        jobId: j.id,
+        agent: agentLabelFromCommand(j.command) || agentLabelFromCommand(j.label || "") || "agent",
+        command: j.label || j.command,
+        cwd: j.cwd,
+        startedAt: j.startedAt,
+        durationMs: j.durationMs,
+        attention: detectAttention(j.log),
+      }));
+
+    return {
+      generatedAt: new Date().toISOString(),
+      items,
+      agents,
+      counts: {
+        attention: items.length,
+        agents: agents.length,
+      },
+    };
+  });
+
+  // ---- Ops: setup doctor, process monitor, share links, service setup ----
+
+  fastify.get("/api/ops/doctor", async (req, reply) => {
+    if (!fileLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "file:read");
+    if (!session) return;
+    try {
+      const env = await detectEnvironment(deps.rootPath);
+      const desktop = desktopCapabilities();
+      const serviceCtx = buildServiceContext({ rootPath: deps.rootPath, binaryPath: "lawang" });
+      const service = {
+        platform: serviceCtx.platform,
+        unitPath: serviceCtx.unitPath,
+        ...probeStatus(serviceCtx),
+      };
+      const tools = {
+        cloudflared: commandExists("cloudflared"),
+        git: commandExists("git"),
+        node: commandExists("node"),
+        npm: commandExists("npm"),
+        linux: process.platform === "linux" ? {
+          xdotool: commandExists("xdotool"),
+          grim: commandExists("grim"),
+          gnomeScreenshot: commandExists("gnome-screenshot"),
+          scrot: commandExists("scrot"),
+          imagemagickImport: commandExists("import"),
+          display: Boolean(process.env.DISPLAY),
+          wayland: Boolean(process.env.WAYLAND_DISPLAY),
+        } : null,
+      };
+      const checks = buildDoctorChecks({
+        env,
+        desktop,
+        service,
+        tools,
+        pairUrl: deps.getPairUrl(),
+        tunnelUrl: deps.getTunnelUrl(),
+        proxyTargets: deps.proxy.state().targets.length,
+        mode: deps.mode,
+      });
+      return { generatedAt: new Date().toISOString(), env, desktop, service, tools, checks };
+    } catch (err) {
+      reply.code(500).send({ status: "error", message: (err as Error).message });
+    }
+  });
+
+  const ProcessStartBody = z.object({
+    command: z.string().trim().min(1).max(4000),
+    cwd: z.string().max(1024).default("."),
+    label: z.string().trim().max(80).optional(),
+  });
+
+  fastify.get("/api/ops/processes", async (req, reply) => {
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    return { jobs: processJobs.list() };
+  });
+
+  fastify.post("/api/ops/processes", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const parsed = ProcessStartBody.safeParse(req.body ?? {});
+    if (!parsed.success) { reply.code(400).send({ status: "invalid_request" }); return; }
+    try {
+      const job = processJobs.start(deps.rootPath, parsed.data);
+      recordEvent("process_started", {
+        deviceName: session.deviceName,
+        metadata: { sessionId: session.sessionId, jobId: job.id, cwd: job.cwd, command: job.command.slice(0, 200) },
+      });
+      return { status: "ok", job };
+    } catch (err) {
+      handleProcessJobError(reply, err);
+    }
+  });
+
+  fastify.get("/api/ops/processes/:jobId", async (req, reply) => {
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const jobId = String((req.params as { jobId?: string }).jobId || "");
+    const job = processJobs.get(jobId);
+    if (!job) { reply.code(404).send({ status: "not_found" }); return; }
+    return { job };
+  });
+
+  fastify.post("/api/ops/processes/:jobId/stop", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const jobId = String((req.params as { jobId?: string }).jobId || "");
+    try {
+      const job = processJobs.stop(jobId);
+      recordEvent("process_stopped", {
+        deviceName: session.deviceName,
+        metadata: { sessionId: session.sessionId, jobId: job.id },
+      });
+      return { status: "ok", job };
+    } catch (err) {
+      handleProcessJobError(reply, err);
+    }
+  });
+
+  const ShareBody = z.object({
+    scope: z.enum(["full", "files", "terminal"]),
+    label: z.string().trim().min(1).max(80).optional(),
+  });
+
+  function shareScopeOf(s: SessionInfo): "full" | "files" | "terminal" | "custom" {
+    if (s.share?.scope) return s.share.scope;
+    const set = new Set(s.permissions);
+    if (set.has("file:write") && set.has("git:write") && set.has("screen:control")) return "full";
+    if (set.has("file:read") && !set.has("file:write")) return "files";
+    if (set.has("terminal") && !set.has("file:read")) return "terminal";
+    return "custom";
+  }
+
+  fastify.get("/api/ops/share", async (req, reply) => {
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const shares = deps.sessions.list()
+      .filter((s) => Boolean(s.share))
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map((s) => ({
+        sessionId: s.sessionId,
+        label: s.deviceName,
+        scope: shareScopeOf(s),
+        permissions: s.permissions,
+        createdAt: new Date(s.createdAt).toISOString(),
+        lastActiveAt: new Date(s.lastActiveAt).toISOString(),
+        expiresAt: s.expiresAt ? new Date(s.expiresAt).toISOString() : null,
+        createdBySessionId: s.share?.createdBySessionId || null,
+        current: s.sessionId === session.sessionId,
+      }));
+    return { shares };
+  });
+
+  fastify.post("/api/ops/share", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const parsed = ShareBody.safeParse(req.body ?? {});
+    if (!parsed.success) { reply.code(400).send({ status: "invalid_request" }); return; }
+    const permissions = permissionsForPreset(parsed.data.scope);
+    const { token, session: shared } = deps.sessions.create({
+      deviceName: parsed.data.label || `Shared ${parsed.data.scope}`,
+      deviceType: "desktop",
+      remoteAddr: req.ip || "share",
+      trusted: false,
+      permissions,
+      share: {
+        scope: parsed.data.scope,
+        createdBySessionId: session.sessionId,
+      },
+    });
+    const origin = requestOrigin(req);
+    const url = `${origin}/?session=${encodeURIComponent(token)}#/session`;
+    recordEvent("share_session_created", {
+      deviceName: session.deviceName,
+      metadata: {
+        sessionId: session.sessionId,
+        sharedSessionId: shared.sessionId,
+        scope: parsed.data.scope,
+        permissions,
+      },
+    });
+    return {
+      status: "ok",
+      url,
+      token,
+      sessionId: shared.sessionId,
+      scope: parsed.data.scope,
+      permissions,
+      expiresAt: shared.expiresAt ? new Date(shared.expiresAt).toISOString() : null,
+    };
+  });
+
+  fastify.delete("/api/ops/share/:sessionId", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const raw = String((req.params as { sessionId?: string }).sessionId || "");
+    if (raw.length < 8) {
+      reply.code(400).send({ status: "invalid_request", reason: "session_id_prefix_too_short" });
+      return;
+    }
+    const match = deps.sessions.list().find((s) =>
+      Boolean(s.share) && (s.sessionId === raw || s.sessionId.startsWith(raw)),
+    );
+    if (!match) {
+      reply.code(404).send({ status: "not_found" });
+      return;
+    }
+    deps.sessions.end(match.sessionId, "revoked");
+    return {
+      status: "revoked",
+      sessionId: match.sessionId,
+      current: match.sessionId === session.sessionId,
+    };
+  });
+
+  // ---- Trusted devices ----
+
+  fastify.get("/api/devices", async (req, reply) => {
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const devices = deps.trusted.list().map((d) => ({
+      deviceId: d.deviceId,
+      name: d.name,
+      createdAt: d.createdAt,
+      lastUsedAt: d.lastUsedAt,
+      revokedAt: d.revokedAt,
+      preset: d.preset || null,
+      active: !d.revokedAt,
+    }));
+    return { devices };
+  });
+
+  fastify.delete("/api/devices/:deviceId", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const raw = String((req.params as { deviceId?: string }).deviceId || "");
+    if (raw.length < 8) {
+      reply.code(400).send({ status: "invalid_request", reason: "device_id_prefix_too_short" });
+      return;
+    }
+    const match = deps.trusted.list().find((d) => d.deviceId === raw || d.deviceId.startsWith(raw));
+    if (!match) {
+      reply.code(404).send({ status: "not_found" });
+      return;
+    }
+    const revoked = await deps.trusted.revoke(match.deviceId);
+    return {
+      status: "revoked",
+      device: revoked
+        ? {
+            deviceId: revoked.deviceId,
+            name: revoked.name,
+            createdAt: revoked.createdAt,
+            lastUsedAt: revoked.lastUsedAt,
+            revokedAt: revoked.revokedAt,
+            preset: revoked.preset || null,
+            active: false,
+          }
+        : null,
+    };
+  });
+
+  fastify.get("/api/ops/ports", async (req, reply) => {
+    const session = authenticate(req, reply, "file:read");
+    if (!session) return;
+    const candidates = [...new Set([...COMMON_DEV_PORTS, ...deps.proxy.state().targets.map((t) => t.port)])];
+    const listening = await probeListeningPorts("127.0.0.1", candidates);
+    const proxyState = deps.proxy.state();
+    return {
+      ports: listening.map((port) => ({
+        port,
+        proxied: proxyState.targets.some((t) => t.port === port),
+        allowed: deps.proxy.isAllowed(port),
+        url: `/proxy/${port}/`,
+        label: guessPortLabel(port),
+      })),
+      allowList: proxyState.allowList,
+    };
+  });
+
+  const ServiceActionBody = z.object({
+    action: z.enum(["install", "uninstall"]),
+    register: z.boolean().optional(),
+  });
+
+  fastify.get("/api/ops/service", async (req, reply) => {
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const ctx = serviceContextForDeps(deps);
+    return {
+      platform: ctx.platform,
+      unitPath: ctx.unitPath,
+      serviceName: ctx.serviceName,
+      rootPath: ctx.rootPath,
+      binaryPath: ctx.binaryPath,
+      status: probeStatus(ctx),
+    };
+  });
+
+  fastify.post("/api/ops/service", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const parsed = ServiceActionBody.safeParse(req.body ?? {});
+    if (!parsed.success) { reply.code(400).send({ status: "invalid_request" }); return; }
+    const ctx = serviceContextForDeps(deps);
+    if (ctx.platform === "unsupported") { reply.code(501).send({ status: "unsupported" }); return; }
+    try {
+      const results = [];
+      if (parsed.data.action === "install") {
+        await writeUnit(ctx);
+        if (parsed.data.register) {
+          for (const step of registrationSteps(ctx)) results.push(runStep(step));
+        }
+        recordEvent("service_installed", {
+          deviceName: session.deviceName,
+          metadata: { sessionId: session.sessionId, unitPath: ctx.unitPath, registered: Boolean(parsed.data.register) },
+        });
+      } else {
+        if (parsed.data.register) {
+          for (const step of unregistrationSteps(ctx)) results.push(runStep(step));
+        }
+        await removeUnit(ctx);
+        recordEvent("service_uninstalled", {
+          deviceName: session.deviceName,
+          metadata: { sessionId: session.sessionId, unitPath: ctx.unitPath, unregistered: Boolean(parsed.data.register) },
+        });
+      }
+      return { status: "ok", results, service: probeStatus(ctx) };
+    } catch (err) {
+      reply.code(500).send({ status: "error", message: (err as Error).message });
+    }
+  });
+
   // ---- Remote desktop ----
 
   fastify.get("/api/desktop/capabilities", async (req, reply) => {
@@ -779,6 +1268,25 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
       reply.header("Cache-Control", "no-store");
       reply.header("X-Captured-At", new Date().toISOString());
       reply.type(shot.mime).send(shot.buffer);
+    } catch (err) {
+      handleDesktopError(reply, err);
+    }
+  });
+
+  fastify.post("/api/desktop/settings", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "screen:view");
+    if (!session) return;
+    const parsed = z.object({
+      target: z.enum(["screen-recording", "accessibility"]),
+    }).safeParse(req.body ?? {});
+    if (!parsed.success) { reply.code(400).send({ status: "invalid_request" }); return; }
+    if (parsed.data.target === "accessibility" && !session.permissions.includes("screen:control")) {
+      reply.code(403).send({ status: "forbidden", message: "Screen control permission is required." });
+      return;
+    }
+    try {
+      return await openDesktopSettings(parsed.data.target);
     } catch (err) {
       handleDesktopError(reply, err);
     }
@@ -1112,7 +1620,7 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
       proxyUpgrade(deps.proxy, request, socket, head);
       return;
     }
-    if (url.pathname !== "/ws/terminal") {
+    if (url.pathname !== "/ws/terminal" && url.pathname !== "/ws/processes") {
       socket.destroy();
       return;
     }
@@ -1123,6 +1631,10 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
       return;
     }
     wss.handleUpgrade(request, socket, head, (ws) => {
+      if (url.pathname === "/ws/processes") {
+        handleProcessSocket(ws, url, deps, processJobs);
+        return;
+      }
       handleTerminalSocket(ws, url, deps);
     });
   });
@@ -1178,6 +1690,201 @@ function handleDesktopError(reply: FastifyReply, err: unknown) {
     return;
   }
   reply.code(500).send({ status: "error", message: (err as Error).message });
+}
+
+function handleProcessJobError(reply: FastifyReply, err: unknown) {
+  if (err instanceof ProcessJobError) {
+    if (err.code === "outside_root") reply.code(403).send({ status: "forbidden", reason: err.code });
+    else if (err.code === "not_found") reply.code(404).send({ status: "not_found" });
+    else if (err.code === "not_running") reply.code(409).send({ status: "not_running" });
+    else reply.code(400).send({ status: "invalid_request", reason: err.code });
+    return;
+  }
+  reply.code(500).send({ status: "error", message: (err as Error).message });
+}
+
+function handleClipboardError(reply: FastifyReply, err: unknown) {
+  if (err instanceof ClipboardError) {
+    if (err.code === "unsupported") reply.code(501).send({ status: "unsupported", message: err.message });
+    else if (err.code === "too_large") reply.code(413).send({ status: "too_large", message: err.message });
+    else if (err.code === "empty") reply.code(400).send({ status: "invalid_request", message: err.message });
+    else reply.code(500).send({ status: err.code, message: err.message });
+    return;
+  }
+  reply.code(500).send({ status: "error", message: (err as Error).message });
+}
+
+function commandExists(command: string): boolean {
+  try {
+    if (process.platform === "win32") execFileSync("where.exe", [command], { stdio: "ignore" });
+    else execFileSync("/usr/bin/env", ["sh", "-c", `command -v ${shellQuote(command)} >/dev/null 2>&1`], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function serviceContextForDeps(deps: AgentDeps) {
+  return buildServiceContext({
+    rootPath: deps.rootPath,
+    binaryPath: "lawang",
+    extraArgs: ["--root", deps.rootPath, "--port", String(deps.port)],
+  });
+}
+
+function requestOrigin(req: FastifyRequest): string {
+  const proto = (req.headers["x-forwarded-proto"] as string | undefined)?.split(",")[0]?.trim()
+    || ((req.headers.host || "").includes("localhost") ? "http" : "http");
+  const host = req.headers.host || "localhost";
+  return `${proto}://${host}`;
+}
+
+function guessPortLabel(port: number): string {
+  const labels: Record<number, string> = {
+    3000: "React / Next",
+    3001: "Dev app",
+    4000: "Node / Phoenix",
+    4173: "Vite preview",
+    4200: "Angular",
+    5173: "Vite",
+    5174: "Vite",
+    6006: "Storybook",
+    8000: "Django / Laravel",
+    8080: "Web server",
+    8888: "Notebook",
+  };
+  return labels[port] || "Local service";
+}
+
+function buildDoctorChecks(input: {
+  env: any;
+  desktop: ReturnType<typeof desktopCapabilities>;
+  service: { installed: boolean; active: boolean; platform: string };
+  tools: any;
+  pairUrl: string | null;
+  tunnelUrl: string | null;
+  proxyTargets: number;
+  mode?: AgentDeps["mode"];
+}) {
+  const checks: Array<{ id: string; label: string; status: "ok" | "warn" | "bad"; detail: string; fix?: string }> = [];
+  checks.push({
+    id: "agent",
+    label: "Agent",
+    status: "ok",
+    detail: `${input.env.machine.hostname} · ${input.env.machine.platform} ${input.env.machine.arch}`,
+  });
+  checks.push({
+    id: "pairing",
+    label: "Pairing",
+    status: input.pairUrl ? "ok" : "bad",
+    detail: input.pairUrl ? "Pairing token aktif" : "Pairing token tidak aktif",
+    fix: input.pairUrl ? undefined : "Rotate pairing token dari command palette atau restart Lawang.",
+  });
+  checks.push({
+    id: "tunnel",
+    label: "Remote URL",
+    status: input.tunnelUrl ? "ok" : "warn",
+    detail: input.tunnelUrl ? "Tunnel tersedia" : "Tidak ada tunnel publik",
+    fix: input.tunnelUrl ? undefined : "Gunakan LAN URL, Tailscale/VPN, reverse proxy HTTPS, atau install cloudflared.",
+  });
+  checks.push({
+    id: "desktop-view",
+    label: "Desktop view",
+    status: input.desktop.view.supported ? "ok" : "bad",
+    detail: input.desktop.view.supported ? input.desktop.view.provider : (input.desktop.view.reason || "Tidak tersedia"),
+    fix: input.desktop.view.supported ? undefined : desktopFix(input.desktop.platform),
+  });
+  checks.push({
+    id: "desktop-control",
+    label: "Desktop control",
+    status: input.desktop.control.supported ? "ok" : "warn",
+    detail: input.desktop.control.supported ? input.desktop.control.provider : (input.desktop.control.reason || "Tidak tersedia"),
+    fix: input.desktop.control.supported ? undefined : controlFix(input.desktop.platform),
+  });
+  checks.push({
+    id: "proxy",
+    label: "Local proxy",
+    status: input.proxyTargets > 0 ? "ok" : "warn",
+    detail: input.proxyTargets > 0 ? `${input.proxyTargets} target aktif` : "Belum ada port yang di-expose",
+    fix: input.proxyTargets > 0 ? undefined : "Buka Ops atau Proxy, scan port dev, lalu expose port yang dibutuhkan.",
+  });
+  checks.push({
+    id: "service",
+    label: "Auto-start service",
+    status: input.service.active ? "ok" : input.service.installed ? "warn" : "warn",
+    detail: input.service.active ? "Service aktif" : input.service.installed ? "Service terpasang tapi tidak aktif" : "Service belum terpasang",
+    fix: input.service.active ? undefined : "Install dan register service dari panel Ops.",
+  });
+  if (input.mode?.autoApprove && !input.mode?.pairLanOnly) {
+    checks.push({
+      id: "auto-approve",
+      label: "Auto approve",
+      status: "warn",
+      detail: "Auto-approve aktif tanpa LAN-only",
+      fix: "Untuk setup unattended, kombinasikan auto-approve dengan pair PIN dan LAN-only.",
+    });
+  }
+  return checks;
+}
+
+function desktopFix(platform: NodeJS.Platform): string {
+  if (platform === "darwin") return "Aktifkan Screen Recording untuk terminal yang menjalankan Lawang.";
+  if (platform === "linux") return "Jalankan Lawang di sesi desktop aktif dan install grim, gnome-screenshot, scrot, atau ImageMagick.";
+  if (platform === "win32") return "Jalankan Lawang dari sesi desktop user aktif dengan PowerShell tersedia.";
+  return "Platform ini belum mendukung desktop capture.";
+}
+
+function controlFix(platform: NodeJS.Platform): string {
+  if (platform === "darwin") return "Aktifkan Accessibility untuk terminal yang menjalankan Lawang.";
+  if (platform === "linux") return "Gunakan sesi X11 dengan xdotool untuk kontrol mouse/keyboard.";
+  if (platform === "win32") return "Pastikan sesi desktop user aktif dan tidak terkunci.";
+  return "Platform ini belum mendukung desktop control.";
+}
+
+function handleProcessSocket(ws: WebSocket, url: URL, deps: AgentDeps, processJobs: ProcessJobStore) {
+  const token = url.searchParams.get("token") || "";
+  const session = token ? deps.sessions.byTokenRaw(token) : undefined;
+
+  if (!session || !session.permissions.includes("terminal")) {
+    recordEvent("ws_rejected", { metadata: { reason: "invalid_session_token", path: "/ws/processes" } });
+    ws.send(JSON.stringify({ event: "error", payload: { code: "AUTH", message: "Invalid or expired session." } }));
+    ws.close(4401, "unauthorized");
+    return;
+  }
+
+  const send = (event: string, payload: unknown = {}) => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event, payload }));
+  };
+
+  send("processes:snapshot", { jobs: processJobs.list() });
+  deps.sessions.touch(session.sessionId);
+
+  const unsubscribe = processJobs.subscribe((evt) => {
+    if (evt.type === "started") send("processes:started", { job: evt.job });
+    else if (evt.type === "log") send("processes:log", { jobId: evt.jobId, chunk: evt.chunk, truncated: evt.truncated });
+    else if (evt.type === "updated") send("processes:updated", { job: evt.job });
+    deps.sessions.touch(session.sessionId);
+  });
+
+  const ping = setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+      try { ws.ping(); } catch { /* ignore */ }
+    }
+  }, 25_000);
+  ping.unref?.();
+
+  ws.on("close", () => {
+    clearInterval(ping);
+    unsubscribe();
+  });
+  ws.on("error", () => {
+    clearInterval(ping);
+    unsubscribe();
+  });
 }
 
 function handleTerminalSocket(ws: WebSocket, url: URL, deps: AgentDeps) {

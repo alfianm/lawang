@@ -4,6 +4,38 @@ All notable changes to Lawang are documented here. Format follows [Keep a Change
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-09
+
+### Added
+- **Clipboard bridge**: copy text between the browser device and the host clipboard (`GET/PUT /api/clipboard`). Header actions **From host** / **To host**, plus a paste modal when the browser blocks clipboard access. Supports macOS (`pbcopy`/`pbpaste`), Linux (`wl-clipboard` / `xclip` / `xsel`), and Windows (PowerShell).
+- **Attention notifications**: `GET /api/attention` detects prompts that need you (y/n, password, agent waiting, errors) from live terminal buffers and process logs. Overview panel + header badge, with optional browser notifications.
+- **AI agent cards**: Ops and Overview surface running coding agents (`claude`, `codex`, `aider`, and similar) with a **needs you** badge when input is required.
+- **Reachability status**: session/info APIs expose `tunnelUrl`, `lanUrl`, and `localUrl`. Overview shows Access URLs; session header shows `tunnel` / `lan` / `local`.
+- **Share session management**: list and revoke active Ops share links (`GET/DELETE /api/ops/share`).
+- **Trusted devices UI**: list and revoke trusted fingerprints from Ops (`GET/DELETE /api/devices`).
+- **Process log streaming**: WebSocket `/ws/processes` for live job logs, with HTTP polling fallback, truncation warnings, and exit code display.
+- **Mobile terminal key bar**: sticky Ctrl/Alt + letter row, plus Home/End/PgUp/PgDn and extra Ctrl shortcuts.
+
+### Changed
+- Permission-aware UI: Files/Git write actions, Proxy/Ops tabs, and Overview quick actions respect session scopes.
+- Command palette **Open session history** now opens the sessions modal.
+- Ops share create flow refreshes the active-share list after creating a link.
+
+### Security
+- Clipboard read/write and device revoke are audited (`clipboard_read`, `clipboard_write`, existing `trusted_device_revoked`).
+- Share sessions store scope metadata so they can be listed and revoked independently of normal sessions.
+
+## [0.8.0] - 2026-06-24
+
+### Added
+- **Ops tab**: setup checks, process jobs, port visibility, share links, and service install helpers.
+- **Setup Doctor**: desktop dependencies, permissions, tunnel tools, service support, and common host requirements from the browser.
+- **Secure Share Session**: limited-scope session links for quick terminal sharing.
+- **Process Monitor**: start, track, read logs from, and stop long-running commands.
+- **Port Explorer**: list useful local ports and label likely dev servers.
+- **Service Installer**: launchd/systemd install and unregister actions from the Ops UI.
+- **Mobile remote controls** in the desktop preview (Escape, Tab, Enter, Backspace, Delete, arrows).
+
 ## [0.6.0] - 2026-05-26
 
 ### Added

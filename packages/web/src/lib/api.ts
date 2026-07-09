@@ -2,6 +2,8 @@ export interface AgentInfo {
   machineName: string;
   version: string;
   tunnelUrl: string | null;
+  localUrl?: string | null;
+  lanUrl?: string | null;
   pairUrl: string | null;
   pairPinRequired?: boolean;
   pairLanOnly?: boolean;
@@ -80,6 +82,13 @@ export interface SessionInfoResponse {
   deviceName: string;
   createdAt: string;
   expiresAt: string | null;
+  reachability?: {
+    tunnelUrl: string | null;
+    localUrl: string;
+    lanUrl: string | null;
+    preferred: string;
+    mode: "tunnel" | "lan" | "local";
+  };
   agentMode?: {
     autoApprove: boolean;
     keepAwake: boolean;
@@ -324,6 +333,22 @@ export type DesktopInput =
 
 export function fetchDesktopCapabilities(token: string): Promise<DesktopCapabilities> {
   return authedJson<DesktopCapabilities>(token, "/api/desktop/capabilities");
+}
+
+export async function openDesktopSettings(
+  token: string,
+  target: "screen-recording" | "accessibility",
+): Promise<void> {
+  const r = await fetch("/api/desktop/settings", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ target }),
+  });
+  if (r.status === 401 || r.status === 403) throw new AuthError(r.status);
+  if (!r.ok) {
+    const body = await r.text();
+    throw new Error(`http_${r.status}:${body.slice(0, 160)}`);
+  }
 }
 
 export async function fetchDesktopScreenshot(token: string): Promise<{ url: string; capturedAt: string | null }> {
@@ -603,6 +628,173 @@ export function removeProxyTarget(token: string, port: number) {
   });
 }
 
+// ---- Ops ----
+
+export type OpsCheckStatus = "ok" | "warn" | "bad";
+
+export interface OpsDoctorCheck {
+  id: string;
+  label: string;
+  status: OpsCheckStatus;
+  detail: string;
+  fix?: string;
+}
+
+export interface OpsDoctor {
+  generatedAt: string;
+  env: EnvironmentResponse;
+  desktop: DesktopCapabilities;
+  service: {
+    platform: string;
+    unitPath: string;
+    installed: boolean;
+    active: boolean;
+    source: string;
+  };
+  tools: Record<string, unknown>;
+  checks: OpsDoctorCheck[];
+}
+
+export type ProcessJobStatus = "running" | "exited" | "failed" | "stopped";
+
+export interface ProcessJob {
+  id: string;
+  command: string;
+  cwd: string;
+  label: string | null;
+  status: ProcessJobStatus;
+  startedAt: string;
+  endedAt: string | null;
+  exitCode: number | null;
+  signal: string | null;
+  durationMs: number;
+  log: string;
+  truncated: boolean;
+}
+
+export interface OpsPort {
+  port: number;
+  proxied: boolean;
+  allowed: boolean;
+  url: string;
+  label: string;
+}
+
+export interface OpsService {
+  platform: string;
+  unitPath: string;
+  serviceName: string;
+  rootPath: string;
+  binaryPath: string;
+  status: { installed: boolean; active: boolean; source: string };
+}
+
+export interface OpsShareResult {
+  status: "ok";
+  url: string;
+  token: string;
+  sessionId: string;
+  scope: "full" | "files" | "terminal";
+  permissions: string[];
+  expiresAt: string | null;
+}
+
+export interface OpsShareRecord {
+  sessionId: string;
+  label: string;
+  scope: "full" | "files" | "terminal" | "custom";
+  permissions: string[];
+  createdAt: string;
+  lastActiveAt: string;
+  expiresAt: string | null;
+  createdBySessionId: string | null;
+  current: boolean;
+}
+
+export interface TrustedDeviceRecord {
+  deviceId: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  preset: "full" | "files" | "terminal" | null;
+  active: boolean;
+}
+
+export function fetchOpsDoctor(token: string): Promise<OpsDoctor> {
+  return authedJsonOrThrow<OpsDoctor>(token, "/api/ops/doctor");
+}
+
+export function listProcessJobs(token: string): Promise<{ jobs: ProcessJob[] }> {
+  return authedJsonOrThrow<{ jobs: ProcessJob[] }>(token, "/api/ops/processes");
+}
+
+export function startProcessJob(token: string, input: { command: string; cwd?: string; label?: string }) {
+  return authedJsonOrThrow<{ status: string; job: ProcessJob }>(token, "/api/ops/processes", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function stopProcessJob(token: string, jobId: string) {
+  return authedJsonOrThrow<{ status: string; job: ProcessJob }>(token, `/api/ops/processes/${encodeURIComponent(jobId)}/stop`, {
+    method: "POST",
+  });
+}
+
+export function listShareSessions(token: string): Promise<{ shares: OpsShareRecord[] }> {
+  return authedJsonOrThrow<{ shares: OpsShareRecord[] }>(token, "/api/ops/share");
+}
+
+export function createShareSession(token: string, input: { scope: "full" | "files" | "terminal"; label?: string }) {
+  return authedJsonOrThrow<OpsShareResult>(token, "/api/ops/share", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function revokeShareSession(token: string, sessionId: string) {
+  return authedJsonOrThrow<{ status: string; sessionId: string; current: boolean }>(
+    token,
+    `/api/ops/share/${encodeURIComponent(sessionId)}`,
+    { method: "DELETE" },
+  );
+}
+
+export function listTrustedDevices(token: string): Promise<{ devices: TrustedDeviceRecord[] }> {
+  return authedJsonOrThrow<{ devices: TrustedDeviceRecord[] }>(token, "/api/devices");
+}
+
+export function revokeTrustedDevice(token: string, deviceId: string) {
+  return authedJsonOrThrow<{ status: string; device: TrustedDeviceRecord | null }>(
+    token,
+    `/api/devices/${encodeURIComponent(deviceId)}`,
+    { method: "DELETE" },
+  );
+}
+
+export function fetchOpsPorts(token: string): Promise<{ ports: OpsPort[]; allowList: number[] | null }> {
+  return authedJsonOrThrow<{ ports: OpsPort[]; allowList: number[] | null }>(token, "/api/ops/ports");
+}
+
+export function fetchOpsService(token: string): Promise<OpsService> {
+  return authedJsonOrThrow<OpsService>(token, "/api/ops/service");
+}
+
+export function performOpsService(token: string, input: { action: "install" | "uninstall"; register?: boolean }) {
+  return authedJsonOrThrow<{ status: string; service: OpsService["status"]; results: Array<{ cmd: string; ok: boolean; stdout: string; stderr: string }> }>(
+    token,
+    "/api/ops/service",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
 // ---- Audit log ----
 
 export interface AuditEvent {
@@ -632,4 +824,72 @@ export function fetchAuditLog(token: string, params: AuditQueryParams = {}): Pro
 
 export function fetchAuditSummary(token: string): Promise<{ counts: Record<string, number> }> {
   return authedJsonOrThrow<{ counts: Record<string, number> }>(token, "/api/audit/summary");
+}
+
+// ---- Clipboard bridge ----
+
+export interface ClipboardCapabilities {
+  supported: boolean;
+  provider: string;
+  platform: string;
+}
+
+export interface ClipboardReadResult {
+  supported: boolean;
+  provider: string;
+  kind: "text" | "empty" | "unsupported";
+  text: string | null;
+  truncated: boolean;
+}
+
+export function fetchClipboardCapabilities(token: string) {
+  return authedJsonOrThrow<ClipboardCapabilities>(token, "/api/clipboard/capabilities");
+}
+
+export function readClipboard(token: string) {
+  return authedJsonOrThrow<ClipboardReadResult>(token, "/api/clipboard");
+}
+
+export function writeClipboard(token: string, text: string) {
+  return authedJsonOrThrow<{ supported: boolean; provider: string; status: string; bytes: number }>(token, "/api/clipboard", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+}
+
+// ---- Attention / agents ----
+
+export interface AttentionItem {
+  id: string;
+  source: "terminal" | "process";
+  kind: string;
+  label: string;
+  snippet: string;
+  sessionId?: string;
+  jobId?: string;
+  command?: string | null;
+  agent?: string | null;
+  status?: string;
+}
+
+export interface AgentCard {
+  jobId: string;
+  agent: string;
+  command: string;
+  cwd: string;
+  startedAt: string;
+  durationMs: number;
+  attention: { kind: string; label: string; snippet: string } | null;
+}
+
+export interface AttentionResponse {
+  generatedAt: string;
+  items: AttentionItem[];
+  agents: AgentCard[];
+  counts: { attention: number; agents: number };
+}
+
+export function fetchAttention(token: string) {
+  return authedJsonOrThrow<AttentionResponse>(token, "/api/attention");
 }

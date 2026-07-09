@@ -10,7 +10,12 @@ import {
 
 type Toast = { id: number; tone: "ok" | "error"; text: string };
 
-export function GitPanel(props: { sessionToken: string; onAuthFailed: () => void }) {
+export function GitPanel(props: {
+  sessionToken: string;
+  onAuthFailed: () => void;
+  canWrite?: boolean;
+}) {
+  const canWrite = props.canWrite !== false;
   const [data, setData] = useState<GitStatus | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -172,18 +177,18 @@ export function GitPanel(props: { sessionToken: string; onAuthFailed: () => void
           </div>
           <button
             onClick={doPull}
-            disabled={!data || !!busy}
+            disabled={!canWrite || !data || !!busy}
             className="inline-flex items-center gap-1 text-xs text-ink border border-line hover:border-accent/40 rounded px-2 py-1 disabled:opacity-40"
-            title="Git pull"
+            title={canWrite ? "Git pull" : "Requires git:write"}
           >
             {busy === "pull" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PullIcon className="w-3.5 h-3.5" />}
             Pull
           </button>
           <button
             onClick={openPush}
-            disabled={!data || !data.branch || data.detached || !!busy}
+            disabled={!canWrite || !data || !data.branch || data.detached || !!busy}
             className="inline-flex items-center gap-1 text-xs text-ink border border-line hover:border-accent/40 rounded px-2 py-1 disabled:opacity-40"
-            title={data?.tracking ? `Push to ${data.tracking}` : "Push (set upstream)"}
+            title={!canWrite ? "Requires git:write" : data?.tracking ? `Push to ${data.tracking}` : "Push (set upstream)"}
           >
             {busy === "push" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PushIcon className="w-3.5 h-3.5" />}
             Push{data && data.ahead > 0 ? ` (${data.ahead})` : ""}
@@ -193,20 +198,27 @@ export function GitPanel(props: { sessionToken: string; onAuthFailed: () => void
           </button>
         </div>
 
+        {!canWrite && (
+          <div className="px-3 py-1.5 border-b border-line text-[11px] font-mono uppercase tracking-wider text-muted bg-panel/40">
+            Read-only git session
+          </div>
+        )}
+
         <div className="flex-1 overflow-auto">
           {data && data.clean && (
             <div className="p-4 text-sm text-muted">Working tree is clean.</div>
           )}
           {data && !data.clean && (
             <>
-              <SectionHeader title="Staged" count={staged.length} action={staged.length > 0 ? { label: "Unstage all", onClick: unstageAll } : undefined} />
-              <FileList files={staged} onSelect={setSelected} selected={selected} onAct={(p) => unstageOne(p)} actLabel="Unstage" actIcon={<Minus className="w-3.5 h-3.5" />} />
-              <SectionHeader title="Changes" count={unstaged.length} action={unstaged.length > 0 ? { label: "Stage all", onClick: stageAll } : undefined} />
-              <FileList files={unstaged} onSelect={setSelected} selected={selected} onAct={(p) => stageOne(p)} actLabel="Stage" actIcon={<Plus className="w-3.5 h-3.5" />} />
+              <SectionHeader title="Staged" count={staged.length} action={canWrite && staged.length > 0 ? { label: "Unstage all", onClick: unstageAll } : undefined} />
+              <FileList files={staged} onSelect={setSelected} selected={selected} onAct={canWrite ? (p) => unstageOne(p) : undefined} actLabel="Unstage" actIcon={<Minus className="w-3.5 h-3.5" />} />
+              <SectionHeader title="Changes" count={unstaged.length} action={canWrite && unstaged.length > 0 ? { label: "Stage all", onClick: stageAll } : undefined} />
+              <FileList files={unstaged} onSelect={setSelected} selected={selected} onAct={canWrite ? (p) => stageOne(p) : undefined} actLabel="Stage" actIcon={<Plus className="w-3.5 h-3.5" />} />
             </>
           )}
         </div>
 
+        {canWrite && (
         <div className="border-t border-line bg-panel/60 p-2">
           <textarea
             value={message}
@@ -244,6 +256,29 @@ export function GitPanel(props: { sessionToken: string; onAuthFailed: () => void
             </ul>
           )}
         </div>
+        )}
+        {!canWrite && (
+          <div className="border-t border-line bg-panel/60 p-2">
+            <button
+              onClick={() => setLogOpen((v) => !v)}
+              className="inline-flex items-center gap-1 text-xs text-muted hover:text-ink"
+            >
+              {logOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              History
+            </button>
+            {logOpen && logs && (
+              <ul className="mt-2 max-h-40 overflow-auto text-[11px] font-mono divide-y divide-line border border-line rounded">
+                {logs.map((c) => (
+                  <li key={c.hash} className="px-2 py-1.5">
+                    <div className="text-ink truncate">{c.message.split("\n")[0]}</div>
+                    <div className="text-muted">{c.hash.slice(0, 7)} • {c.author.split(" <")[0]} • {new Date(c.date).toLocaleString()}</div>
+                  </li>
+                ))}
+                {logs.length === 0 && <li className="px-2 py-2 text-muted">No commits yet.</li>}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col">
@@ -295,7 +330,7 @@ function FileList(props: {
   files: { path: string; staged: boolean; unstaged: boolean; untracked: boolean; index: string; workingDir: string }[];
   onSelect: (p: string) => void;
   selected: string | null;
-  onAct: (p: string) => void;
+  onAct?: (p: string) => void;
   actLabel: string;
   actIcon: React.ReactNode;
 }) {
@@ -307,14 +342,16 @@ function FileList(props: {
           <div className={`flex items-center gap-2 px-3 py-1.5 ${props.selected === f.path ? "bg-line" : "hover:bg-panel"}`}>
             <span className={`inline-block w-4 text-center text-[10px] font-mono ${labelColor(f)}`}>{statusGlyph(f)}</span>
             <button onClick={() => props.onSelect(f.path)} className="flex-1 text-left text-sm truncate">{f.path}</button>
-            <button
-              onClick={() => props.onAct(f.path)}
-              title={props.actLabel}
-              className="inline-flex items-center gap-1 text-[11px] text-muted hover:text-ink border border-line hover:border-accent/40 rounded px-1.5 py-0.5"
-            >
-              {props.actIcon}
-              {props.actLabel}
-            </button>
+            {props.onAct && (
+              <button
+                onClick={() => props.onAct?.(f.path)}
+                title={props.actLabel}
+                className="inline-flex items-center gap-1 text-[11px] text-muted hover:text-ink border border-line hover:border-accent/40 rounded px-1.5 py-0.5"
+              >
+                {props.actIcon}
+                {props.actLabel}
+              </button>
+            )}
           </div>
         </li>
       ))}

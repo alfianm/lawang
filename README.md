@@ -1,6 +1,6 @@
 # Lawang - Remote Workspace for Your Own Machine
 
-**Open your terminal, files, Git workflow, local dev servers, and a macOS desktop preview from any browser.**
+**Open your terminal, files, Git workflow, local dev servers, and a desktop preview from any browser.**
 
 **Run one command, scan a QR code, approve the device, and work from your phone, tablet, or another laptop.**
 
@@ -10,6 +10,7 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.17-339933.svg)](packages/agent/package.json)
 
 [Quick Start](#quick-start) |
+[What's New](#whats-new-in-090) |
 [Comparison](#lawang-vs-other-remote-solutions) |
 [Features](#key-features) |
 [Setup](#setup-guide) |
@@ -26,8 +27,12 @@ Lawang is open source and under active development.
 The current package is usable for local-first remote developer workflows, but a
 few areas are still considered early:
 
-- Remote desktop currently targets macOS hosts.
-- Windows support exists in parts of the codebase, but is not fully tested.
+- Remote desktop support is available for macOS, Linux, and Windows hosts, with
+  different provider requirements per OS.
+- Linux desktop control currently targets X11 sessions with `xdotool`; Wayland
+  support is limited.
+- Windows desktop view/control must run inside an active signed-in desktop
+  session.
 - Desktop streaming is a preview implementation, not a WebRTC-grade streamer
   yet.
 
@@ -90,6 +95,33 @@ expires sessions after 120 minutes.
 
 ---
 
+## What's New in 0.9.0
+
+Lawang 0.9.0 focuses on remote-from-phone workflows: staying aware when the
+host needs you, moving text between devices, and making Ops/session tools
+easier to manage from the browser.
+
+- **Clipboard bridge**: copy text from the host clipboard to your phone, or
+  paste phone clipboard text onto the host.
+- **Attention notifications**: detect prompts that need input (confirmations,
+  passwords, coding agents waiting) and surface them in Overview + the header,
+  with optional browser notifications.
+- **AI agent cards**: see running `claude` / `codex` / `aider`-style jobs in
+  Ops and jump when they need approval.
+- **Reachability panel**: clear tunnel / LAN / local URLs in Overview and the
+  session header.
+- **Share + trusted device management**: list and revoke share links and
+  trusted devices from Ops (not CLI-only anymore).
+- **Live process logs**: WebSocket streaming for Process Monitor, with
+  truncation and exit-code details.
+- **Richer mobile terminal keys**: sticky Ctrl/Alt, letter row, Home/End/PgUp/PgDn.
+- **Permission-aware UI**: write actions and tabs respect session scopes.
+
+See [CHANGELOG.md](CHANGELOG.md) for the full list, including 0.8.0 Ops workspace
+additions.
+
+---
+
 ## Lawang vs Other Remote Solutions
 
 | Feature | **Lawang** | SSH Client | TeamViewer | Chrome Remote Desktop | Local Tunnel |
@@ -105,7 +137,7 @@ expires sessions after 120 minutes.
 | Permission scopes | Yes | No | No | No | No |
 | Trusted device revoke | Yes | Manual | Account-based | Account-based | No |
 | Audit log | Yes | Shell history only | No | No | No |
-| Remote desktop | macOS preview | No | Yes | Yes | No |
+| Remote desktop | Preview | No | Yes | Yes | No |
 | No account required | Yes | Yes | No | No | Yes |
 | Open source | Yes | Varies | No | No | Varies |
 
@@ -126,8 +158,9 @@ developers who want a self-hosted browser workspace around their own machine.
 | **Git workflow** | Status, diff, log, stage, commit, pull, and push | Handle common Git tasks from the browser |
 | **Command chat** | Run one-shot commands with formatted output | Quick commands without switching terminal context |
 | **Command palette** | Navigate and run session actions with `Cmd-K` / `Ctrl-K` | Faster keyboard-driven workflow |
+| **Ops workspace** | Setup checks, process monitor, port explorer, share links, and service helpers | Fix common remote access problems without leaving the browser |
 | **Localhost proxy** | Exposes selected local dev ports under `/proxy/<port>` | Test local web apps from phone or tablet |
-| **Remote desktop preview** | macOS screen view and optional input control | Inspect or control the host when terminal is not enough |
+| **Remote desktop preview** | Screen view and optional input control on macOS, Linux, and Windows | Inspect or control the host when terminal is not enough |
 | **Host controls** | Lock, sleep, reboot, or shut down from the UI | Manage the host at the end of a session |
 | **Pairing PIN** | Adds an optional PIN on top of QR token pairing | Useful for unattended or shared-network setups |
 | **LAN-only pairing** | Restricts pairing to local/private hostnames | Safer unattended mode |
@@ -147,8 +180,8 @@ npm install -g lawang
 Host support:
 
 - macOS: primary target
-- Linux: core terminal, files, Git, proxy, audit, and service support
-- Windows: partial, not yet fully tested
+- Linux: core workflows plus desktop preview on supported desktop sessions
+- Windows: core workflows plus desktop preview on active signed-in sessions
 
 ### Web Client
 
@@ -162,10 +195,14 @@ Supported clients:
 
 ### Remote Desktop Preview
 
-Current target:
+Current support:
 
 - macOS host with Screen Recording permission for view
 - macOS host with Accessibility permission for input control
+- Linux host with `grim`, `gnome-screenshot`, `scrot`, or ImageMagick `import`
+  for view
+- Linux X11 host with `xdotool` for input control
+- Windows host with PowerShell and an active signed-in desktop session
 
 ---
 
@@ -268,7 +305,9 @@ lawang start --pair-lan-only
 lawang start --session-ttl 120
 ```
 
-### Remote Desktop Setup on macOS
+### Remote Desktop Setup
+
+#### macOS
 
 For screen viewing:
 
@@ -285,6 +324,38 @@ Enable the terminal app running Lawang
 ```
 
 Restart Lawang after changing macOS permissions.
+
+#### Linux
+
+For desktop viewing, install at least one supported screenshot provider:
+
+```bash
+# Debian/Ubuntu examples
+sudo apt install gnome-screenshot
+sudo apt install scrot
+sudo apt install imagemagick
+```
+
+For Wayland wlroots compositors, `grim` is also supported:
+
+```bash
+sudo apt install grim
+```
+
+For mouse and keyboard control on X11:
+
+```bash
+sudo apt install xdotool
+```
+
+Wayland desktop control is intentionally limited by compositor security. Use an
+X11 session if you need view + control on Linux today.
+
+#### Windows
+
+Windows desktop preview uses PowerShell and .NET screen/input APIs. Run Lawang
+inside the active signed-in desktop session. It is not intended to control a
+locked Session 0 service desktop.
 
 ### Local Sites Proxy
 
@@ -505,10 +576,12 @@ tetap memegang kontrol atas pairing, permission, dan sesi aktif.
 Lawang sudah bisa digunakan untuk workflow developer lokal, tetapi beberapa area
 masih aktif dikembangkan:
 
-- Remote desktop saat ini fokus untuk host macOS.
-- Linux sudah mendukung workflow inti seperti terminal, file, Git, proxy, audit,
-  dan service.
-- Windows masih parsial dan belum sepenuhnya dites.
+- Remote desktop sudah tersedia untuk host macOS, Linux, dan Windows, dengan
+  requirement berbeda di tiap OS.
+- Linux desktop control saat ini ditargetkan untuk session X11 dengan
+  `xdotool`; Wayland masih terbatas.
+- Windows desktop view/control harus dijalankan dari session desktop user yang
+  sedang login.
 - Desktop streaming masih preview, belum ditujukan sebagai pengganti penuh
   TeamViewer atau Chrome Remote Desktop.
 
@@ -572,7 +645,7 @@ setelah 120 menit.
 | Command chat | Jalankan command singkat dengan output yang mudah dibaca |
 | Command palette | Navigasi cepat memakai `Cmd-K` atau `Ctrl-K` |
 | Localhost proxy | Membuka local dev server lewat `/proxy/<port>` |
-| Remote desktop preview | Melihat layar macOS host dan optional input control |
+| Remote desktop preview | Melihat layar host dan optional input control di macOS, Linux, dan Windows |
 | Host controls | Lock, sleep, reboot, atau shutdown dari UI |
 | Pairing PIN | Menambah PIN di atas token QR |
 | LAN-only pairing | Membatasi pairing ke hostname/IP private |
@@ -584,8 +657,8 @@ setelah 120 menit.
 Host:
 
 - macOS: target utama
-- Linux: mendukung workflow inti
-- Windows: parsial, masih perlu testing
+- Linux: mendukung workflow inti dan desktop preview pada session yang didukung
+- Windows: mendukung workflow inti dan desktop preview pada session user aktif
 
 Client:
 
@@ -593,12 +666,19 @@ Client:
 - Browser iOS dan Android
 - Browser desktop di macOS, Linux, dan Windows
 
-Remote desktop saat ini membutuhkan permission macOS:
+Remote desktop macOS membutuhkan permission:
 
 ```text
 System Settings -> Privacy & Security -> Screen Recording
 System Settings -> Privacy & Security -> Accessibility
 ```
+
+Remote desktop Linux membutuhkan provider screenshot seperti `gnome-screenshot`,
+`scrot`, ImageMagick `import`, atau `grim`. Untuk control di Linux, gunakan
+session X11 dengan `xdotool`.
+
+Remote desktop Windows membutuhkan PowerShell dan harus berjalan di session user
+yang sedang login.
 
 ### Setup dari Source
 

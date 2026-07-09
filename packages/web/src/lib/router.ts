@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export type Tab = "overview" | "terminal" | "files" | "git" | "desktop" | "chat" | "proxy" | "audit";
+export type Tab = "overview" | "terminal" | "files" | "git" | "desktop" | "chat" | "proxy" | "ops" | "audit";
 export type Route =
   | { name: "home" }
   | { name: "pair"; token: string | null }
@@ -11,10 +11,15 @@ function parse(): Route {
   const raw = window.location.hash.replace(/^#\/?/, "");
   const [path, query] = raw.split("?");
   const params = new URLSearchParams(query || "");
+  const pageParams = new URLSearchParams(window.location.search || "");
+  const directSessionToken = pageParams.get("session");
+  if (directSessionToken && !path) {
+    return { name: "session", tab: "overview", sessionToken: directSessionToken };
+  }
   if (path === "pair") return { name: "pair", token: params.get("token") };
   if (path === "hosts") return { name: "hosts" };
-  if (path === "overview" || path === "terminal" || path === "files" || path === "git" || path === "desktop" || path === "chat" || path === "proxy" || path === "audit" || path === "session") {
-    const sessionToken = sessionStorage.getItem("lawang:session") || "";
+  if (path === "overview" || path === "terminal" || path === "files" || path === "git" || path === "desktop" || path === "chat" || path === "proxy" || path === "ops" || path === "audit" || path === "session") {
+    const sessionToken = params.get("token") || pageParams.get("session") || sessionStorage.getItem("lawang:session") || "";
     const tab: Tab =
       path === "overview" || path === "session" ? "overview" :
       path === "files" ? "files" :
@@ -22,6 +27,7 @@ function parse(): Route {
       path === "desktop" ? "desktop" :
       path === "chat" ? "chat" :
       path === "proxy" ? "proxy" :
+      path === "ops" ? "ops" :
       path === "audit" ? "audit" :
       "terminal";
     return { name: "session", tab, sessionToken };

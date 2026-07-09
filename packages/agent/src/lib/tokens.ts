@@ -44,6 +44,11 @@ export interface SessionInfo {
   expiresAt: number | null;
   status: "active" | "ended" | "revoked" | "expired";
   permissions: Permission[];
+  /** Present when this session was created via Ops secure share. */
+  share?: {
+    scope: "full" | "files" | "terminal";
+    createdBySessionId: string;
+  } | null;
 }
 
 export function newPairingToken(expiryMs: number): PairingToken {

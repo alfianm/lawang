@@ -1,149 +1,240 @@
-# Lawang
+# Lawang - Remote Workspace for Your Own Machine
 
-> Local-first remote access for your own machine, with QR pairing and explicit host approval.
+**Open your terminal, files, Git workflow, local dev servers, and a desktop preview from any browser.**
 
-Run one command on your laptop or server, scan a QR code from your phone,
-tablet, or another browser, then open a secure remote workspace for your
-project. Lawang is built for developer workflows: terminal, files, code edit,
-Git, localhost proxy, audit log, host controls, and an early remote desktop
-mode.
-
-No accounts. No central cloud dashboard. No broker that stores your command
-output or project files. The host keeps control and must approve new devices.
+Run one command on your laptop or workstation, scan a QR code from a phone,
+tablet, or another browser, approve the device on the host, and use a local-first
+remote workspace without a hosted account.
 
 ```bash
-npm i -g lawang
+npm install -g lawang
 lawang start
 ```
 
-Scan the QR shown in the terminal (or open `http://localhost:3999/qr` for
-a fullscreen version), approve the request from the host CLI, and you're in.
+Open the QR URL printed by the CLI, or visit `http://localhost:3999/qr`.
+
+## Why Lawang?
+
+Lawang is built for developer workflows where SSH, VPN, and classic remote
+desktop tools feel too heavy or too narrow:
+
+- Browser-based terminal, files, code editing, Git, localhost proxy, audit log,
+  host controls, and desktop preview in one workspace.
+- QR pairing with host approval by default.
+- Optional unattended mode for trusted LAN/private setups.
+- No account, no central cloud dashboard, and no hosted broker storing your
+  terminal output or project files.
+- Open source and local-first.
+
+## Quick Start
+
+```bash
+npm install -g lawang
+lawang start
+```
+
+Then:
+
+1. Open the QR URL shown in the terminal.
+2. Scan the QR from another device.
+3. Approve the pairing request on the host CLI.
+4. Use the Lawang browser workspace.
+
+For unattended LAN use:
+
+```bash
+lawang start --unattended-lan-only --pair-pin 123456 --session-ttl 120
+```
+
+This keeps the host awake, auto-approves valid pairing tokens, limits pairing to
+LAN/private addresses, requires a PIN, and expires sessions after 120 minutes.
+
+## What's New in 0.9.0
+
+Lawang 0.9.0 improves remote-from-phone workflows:
+
+- Clipboard bridge between browser device and host.
+- Attention notifications when terminals or process jobs need input.
+- AI agent cards for running coding agents in Ops.
+- Reachability status (tunnel / LAN / local) in Overview and session header.
+- Share-link and trusted-device list/revoke from Ops.
+- Live process log streaming over WebSocket.
+- Richer mobile terminal key bar (sticky Ctrl/Alt, navigation keys).
+- Permission-aware Files, Git, Proxy, and Ops UI.
+
+See the root [CHANGELOG.md](../../CHANGELOG.md) for details.
 
 ## Features
 
 ### Remote terminal
 
-- Overview dashboard with host status, active sessions, permissions, and quick
-  navigation after pairing.
-- Browser terminal powered by xterm.js and `node-pty`.
-- Mobile shortcut bar for `Esc`, `Tab`, `Ctrl+C`, arrows, and common shell keys.
-- Reconnect-safe PTY: short disconnects keep the shell alive and replay buffered
-  output when the browser returns.
-- One-shot command chat tab for quick commands with formatted output, exit code,
-  JSON, and diff rendering.
+- Real PTY shell over WebSocket.
+- xterm.js browser terminal.
+- Mobile shortcut bar for common shell keys.
+- Reconnect-safe terminal sessions for short disconnects.
+- One-shot command chat for quick commands and formatted output.
 
 ### Files and code
 
 - Browse the project root from the browser.
-- Read, edit, save, upload, rename, delete, and create folders inside the
-  sandboxed root.
-- Search the current folder and drag files into the browser to upload.
-- Monaco editor for code editing directly from the remote browser.
-- File preview protects large/binary files and blocks path traversal.
+- Read, edit, save, upload, download, rename, delete, and create folders.
+- Search the current folder.
+- Drag and drop uploads.
+- Monaco-powered browser code editor.
+- Path traversal and large/binary file guards.
 
 ### Git workflow
 
 - Git status, diff, and recent log.
 - Stage and unstage files.
 - Commit, pull, and push from the web UI.
-- Push supports first-time upstream setup when the branch has no tracking
-  branch.
+- First-time upstream setup when pushing a branch with no tracking branch.
 
 ### Remote desktop preview
 
-- Desktop tab for screen viewing on macOS hosts.
-- Mouse move/click, keyboard events, and text input when the session has
-  `screen:control`.
-- Responsive Fit/Large view modes for desktop and mobile browsers.
-- macOS needs Screen Recording permission for viewing and Accessibility
-  permission for control.
+- macOS view via `screencapture`.
+- macOS control via CoreGraphics/System Events.
+- Linux view via `grim`, `gnome-screenshot`, `scrot`, or ImageMagick `import`.
+- Linux X11 control via `xdotool`.
+- Windows view/control via PowerShell and active desktop session APIs.
+- Responsive Fit/Large modes for desktop and mobile browsers.
+
+Remote desktop is still a preview feature. It is useful for inspection and light
+control, but it is not a WebRTC-grade streamer yet.
 
 ### Localhost proxy
 
-- Expose local dev servers through the Lawang session, for example
-  `localhost:3000` or `localhost:5173`.
-- Access proxied apps under `/proxy/<port>/...`.
-- Optional allow-list mode or open dev mode via `--proxy open`.
+- Expose local dev servers, for example `localhost:3000` or `localhost:5173`.
+- Open proxied apps inside the session under `/proxy/<port>/...`.
+- Use an allow-list or development open mode.
+
+```bash
+lawang start --proxy 3000,5173
+lawang start --proxy open
+```
 
 ### Device and session control
 
-- One-time QR pairing with explicit approval from the host CLI.
-- Optional extra pairing PIN via `--pair-pin` and LAN-only pairing via
-  `--pair-lan-only`.
-- Permission scopes: full access, read-only, or terminal-only.
-- Trusted devices can skip future approval and can be revoked later.
-- Optional `--auto-approve` mode for trusted environments where valid pairing
-  tokens should skip the interactive host prompt.
-- `--unattended` combines auto-approve with keep-awake for always-ready hosts.
-- List and revoke active sessions from the CLI or browser session panel.
-- Rotate the pairing token without restarting the agent.
+- One-time QR pairing token.
+- Host approval required by default.
+- Optional pairing PIN via `--pair-pin`.
+- Optional LAN/private pairing restriction via `--pair-lan-only`.
+- Permission scopes: full, read-only, files, or terminal.
+- Trusted device revoke.
+- Active session list and revoke from CLI or browser.
+- Token rotation without restarting the agent.
 
 ### Host utilities
 
-- Host power actions from the UI: sleep, shutdown, reboot, and lock.
-- Battery indicator in the web session.
-- `--keep-awake` mode to prevent sleep while the agent is running.
-- Update banner when a newer npm version is available.
+- Host lock, sleep, reboot, and shutdown actions from the UI.
+- Ops tab with Setup Doctor, Secure Share Session, Process Monitor, Port
+  Explorer, and Service Installer.
+- Battery indicator.
+- Keep-awake mode.
+- Service install helper for launchd/systemd.
+- Update banner when a newer NPM version is available.
 
 ### Audit and safety
 
 - Local JSONL audit log at `~/.lawang/audit.log`.
-- Audit viewer in the browser with filters and search.
-- Security smoke test via `lawang verify`.
-- Rate limits, origin checks, hashed tokens, sandboxed file paths, and bounded
-  WebSocket frames.
+- Browser audit viewer.
+- Security smoke checks via `lawang verify`.
+- Hashed pairing/session tokens.
+- File sandboxing.
+- Origin checks and rate limits.
+- Bounded WebSocket frames.
 
 ## Commands
 
 ```bash
 lawang start [--keep-awake] [--no-tunnel] [--port 3999] [--root .]
-lawang start --proxy 3000,5173    # expose selected local dev ports
-lawang start --proxy open         # allow any localhost port in dev mode
-lawang start --auto-approve       # skip host prompt for valid pairing tokens
+lawang start --proxy 3000,5173
+lawang start --proxy open
+lawang start --auto-approve
 lawang start --auto-approve --auto-approve-scope files
-lawang start --unattended         # auto-approve + keep-awake
+lawang start --unattended
 lawang start --unattended-lan-only
 lawang start --pair-pin 123456 --session-ttl 120
 lawang install-service --unattended --register
 
-lawang rotate                     # new pairing token without restarting
-lawang devices [--revoke <id>]    # manage trusted devices
-lawang sessions [--revoke <id>]   # list or revoke active sessions
-lawang history                    # past sessions from audit log
-lawang verify                     # smoke-test security hard rules
-lawang ping                       # check if agent is running
+lawang rotate
+lawang devices
+lawang devices --revoke <id>
+lawang sessions
+lawang sessions --revoke <id>
+lawang history
+lawang verify
+lawang ping
 ```
 
 ## Requirements
 
 - Node.js `>= 18.17`
-- Optional: `cloudflared` for public tunnel (`brew install cloudflared` on
-  macOS).
-- macOS and Linux for core terminal/file/Git features.
-- Remote desktop preview currently targets macOS hosts.
-- Windows compatibility exists but is not yet fully tested.
+- Optional `cloudflared` for public tunnel support
+- macOS, Linux, or Windows host for core workflows
 
-## Security
+Remote desktop requirements:
 
-- Pairing token: random 24-byte base64url, SHA-256 hashed, one-time consumed.
-- Optional pairing PIN is hashed in memory and checked before approval.
-- Session token: random 32-byte, hashed in memory.
-- Optional session max lifetime via `--session-ttl <minutes>`.
+- macOS: Screen Recording permission for view, Accessibility permission for
+  control
+- Linux: `grim`, `gnome-screenshot`, `scrot`, or ImageMagick `import` for view
+- Linux control: X11 session with `xdotool`
+- Windows: PowerShell and an active signed-in desktop session
+
+## Security Model
+
+- Pairing tokens are random, short-lived, one-time, and stored only as hashes.
+- Session tokens are random and stored only as hashes in memory.
+- Optional pairing PINs are hashed before comparison.
+- Host approval is required by default.
 - Permission scopes are enforced on every API and WebSocket path.
-- Path traversal guard on all file endpoints.
-- WebSocket Origin allowlist + 64 KB frame cap + 32 KB input cap.
-- Rate limiting on pairing, file reads, writes, and desktop frames.
-- All secrets stored as hashes; raw tokens only ever leave to legitimate
-  client device.
-- Audit log records pairing, sessions, file writes, Git actions, proxy access,
-  power actions, and desktop control events.
+- File access is sandboxed to the selected root.
+- Sensitive operations are written to the local audit log.
 
-Run `lawang verify` to confirm hard rules are still enforced.
+For unattended hosts, prefer:
 
-## Publish notes
+```bash
+lawang start --unattended-lan-only --pair-pin 123456 --session-ttl 120
+```
 
-The npm package includes the built agent (`dist/`) and built web UI (`public/`).
-If you are publishing a README-only update, npm still requires a new version:
+## Bahasa Indonesia
+
+Lawang adalah alat remote access lokal untuk membuka terminal, file, Git,
+localhost proxy, kontrol host, dan preview remote desktop dari browser.
+
+Jalankan Lawang di laptop atau mesin kerja, scan QR dari perangkat lain, approve
+perangkat tersebut, lalu gunakan workspace langsung dari browser HP, tablet, atau
+laptop lain.
+
+Fitur utama:
+
+- Terminal remote dengan PTY sungguhan.
+- File explorer dan editor kode dari browser.
+- Git status, diff, commit, pull, dan push.
+- Proxy untuk local dev server lewat `/proxy/<port>`.
+- Remote desktop preview untuk macOS, Linux, dan Windows dengan requirement OS
+  masing-masing.
+- Pairing PIN, LAN-only pairing, session TTL, trusted device revoke, dan audit
+  log lokal.
+- Mode `--unattended-lan-only` untuk host yang ingin siap diakses di jaringan
+  terpercaya.
+
+Install:
+
+```bash
+npm install -g lawang
+lawang start
+```
+
+Mode unattended yang lebih ketat:
+
+```bash
+lawang start --unattended-lan-only --pair-pin 123456 --session-ttl 120
+```
+
+## Publish Notes
+
+NPM requires a new version for every README update:
 
 ```bash
 cd packages/agent
@@ -151,12 +242,20 @@ npm version patch --no-git-tag-version
 npm publish
 ```
 
-## License
+If you already changed the version to the wrong bump, set it explicitly:
 
-MIT.
+```bash
+npm version 0.7.2 --no-git-tag-version
+```
 
 ## Links
 
-- Full docs: see [`docs/DOCUMENTATION.md`](https://github.com/alfianm/lawang-app/blob/main/docs/DOCUMENTATION.md)
-- API reference: see [`site/api.html`](https://github.com/alfianm/lawang-app/blob/main/site/api.html)
-- PRD: see [`prd_remote_access_app.md`](https://github.com/alfianm/lawang-app/blob/main/prd_remote_access_app.md)
+- GitHub: [github.com/alfianm/lawang](https://github.com/alfianm/lawang)
+- NPM: [npmjs.com/package/lawang](https://www.npmjs.com/package/lawang)
+- Documentation: [docs/DOCUMENTATION.md](https://github.com/alfianm/lawang/blob/main/docs/DOCUMENTATION.md)
+- Static docs site: [site/](https://github.com/alfianm/lawang/tree/main/site)
+- Issues: [github.com/alfianm/lawang/issues](https://github.com/alfianm/lawang/issues)
+
+## License
+
+MIT.

@@ -1,23 +1,25 @@
 import { useEffect, useState } from "react";
-import { Terminal as TerminalIcon, FolderOpen, GitBranch, Power, Wifi, WifiOff, Globe, ScrollText, Monitor, ShieldAlert, LayoutDashboard } from "lucide-react";
+import { Terminal as TerminalIcon, FolderOpen, GitBranch, Power, Wifi, WifiOff, Globe, ScrollText, Monitor, ShieldAlert, LayoutDashboard, Wrench, MessageSquare } from "lucide-react";
 import { TerminalPanel } from "../components/TerminalPanel";
 import { FilesPanel } from "../components/FilesPanel";
 import { GitPanel } from "../components/GitPanel";
 import { DesktopPanel } from "../components/DesktopPanel";
 import { OverviewPanel } from "../components/OverviewPanel";
 import { ProxyPanel } from "../components/ProxyPanel";
+import { OpsPanel } from "../components/OpsPanel";
 import { AuditPanel } from "../components/AuditPanel";
 import { SessionMeta } from "../components/SessionMeta";
 import { ChatPanel } from "../components/ChatPanel";
 import { PowerMenu } from "../components/PowerMenu";
 import { BatteryIndicator } from "../components/BatteryIndicator";
 import { UpdateBanner } from "../components/UpdateBanner";
+import { ClipboardBridge } from "../components/ClipboardBridge";
+import { AttentionIndicator } from "../components/AttentionIndicator";
 import { CommandPalette, buildStaticActions } from "../components/CommandPalette";
 import { rotatePairingViaApi } from "../lib/api";
 import { HostSwitcher } from "../components/HostSwitcher";
 import { rememberCurrentHost } from "../lib/hosts";
 import { invalidatePaletteCache } from "../lib/paletteData";
-import { MessageSquare } from "lucide-react";
 import { fetchSession, SessionInfoResponse } from "../lib/api";
 import type { Tab } from "../lib/router";
 
@@ -85,12 +87,33 @@ export function SessionPage(props: {
             onOpenManage={() => { window.location.hash = "/hosts"; }}
           />
           <SessionMeta sessionToken={props.sessionToken} currentSessionId={info?.sessionId} onAuthFailed={handleEndSession} />
+          <ClipboardBridge sessionToken={props.sessionToken} onAuthFailed={handleEndSession} />
+          <AttentionIndicator
+            compact
+            sessionToken={props.sessionToken}
+            onAuthFailed={handleEndSession}
+            onGoTo={props.onTabChange}
+          />
           {info && info.permissions && (
             <span
               className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide px-2 py-1 rounded border border-line text-muted"
               title={info.permissions.join(", ")}
             >
               scope: {scopeLabel(info.permissions)}
+            </span>
+          )}
+          {info?.reachability && (
+            <span
+              className={`inline-flex items-center gap-1 text-[11px] uppercase tracking-wide px-2 py-1 rounded border ${
+                info.reachability.mode === "tunnel"
+                  ? "border-ok/40 text-ok"
+                  : info.reachability.mode === "lan"
+                    ? "border-accent/40 text-accent"
+                    : "border-line text-muted"
+              }`}
+              title={info.reachability.preferred}
+            >
+              {info.reachability.mode}
             </span>
           )}
           {info?.agentMode?.unattended && (
@@ -173,6 +196,11 @@ export function SessionPage(props: {
             Proxy
           </TabButton>
         )}
+        {(hasPerm(info, "terminal") || hasPerm(info, "file:read")) && (
+          <TabButton active={props.tab === "ops"} onClick={() => props.onTabChange("ops")} icon={<Wrench className="w-4 h-4" />}>
+            Ops
+          </TabButton>
+        )}
         <TabButton active={props.tab === "chat"} onClick={() => props.onTabChange("chat")} icon={<MessageSquare className="w-4 h-4" />}>
           Chat
         </TabButton>
@@ -200,12 +228,21 @@ export function SessionPage(props: {
         </div>
         {props.tab === "files" && (
           <div className="h-full">
-            <FilesPanel sessionToken={props.sessionToken} onAuthFailed={handleEndSession} rootName={info?.rootPath?.split("/").pop() || "root"} />
+            <FilesPanel
+              sessionToken={props.sessionToken}
+              onAuthFailed={handleEndSession}
+              rootName={info?.rootPath?.split("/").pop() || "root"}
+              canWrite={hasPerm(info, "file:write")}
+            />
           </div>
         )}
         {props.tab === "git" && (
           <div className="h-full">
-            <GitPanel sessionToken={props.sessionToken} onAuthFailed={handleEndSession} />
+            <GitPanel
+              sessionToken={props.sessionToken}
+              onAuthFailed={handleEndSession}
+              canWrite={hasPerm(info, "git:write")}
+            />
           </div>
         )}
         {props.tab === "desktop" && (
@@ -220,6 +257,15 @@ export function SessionPage(props: {
         {props.tab === "proxy" && (
           <div className="h-full">
             <ProxyPanel sessionToken={props.sessionToken} onAuthFailed={handleEndSession} />
+          </div>
+        )}
+        {props.tab === "ops" && (
+          <div className="h-full">
+            <OpsPanel
+              sessionToken={props.sessionToken}
+              permissions={info?.permissions}
+              onAuthFailed={handleEndSession}
+            />
           </div>
         )}
         {props.tab === "chat" && (

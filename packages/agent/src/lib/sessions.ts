@@ -21,6 +21,10 @@ export class SessionStore {
     remoteAddr: string;
     trusted?: boolean;
     permissions?: Permission[];
+    share?: {
+      scope: "full" | "files" | "terminal";
+      createdBySessionId: string;
+    } | null;
   }) {
     const { token, hash: tokenHash } = newSessionToken();
     const permissions: Permission[] = opts.permissions && opts.permissions.length > 0
@@ -37,6 +41,7 @@ export class SessionStore {
       expiresAt: this.maxLifetimeMs > 0 ? Date.now() + this.maxLifetimeMs : null,
       status: "active",
       permissions,
+      share: opts.share ?? null,
     };
     this.sessions.set(session.sessionId, session);
     recordEvent("session_started", {
@@ -46,6 +51,7 @@ export class SessionStore {
         remoteAddr: session.remoteAddr,
         trusted: Boolean(opts.trusted),
         permissions,
+        share: session.share || undefined,
       },
     });
     return { session, token };

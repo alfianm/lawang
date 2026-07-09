@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Activity, BatteryCharging, Clock, FolderOpen, GitBranch, Globe, Monitor,
-  Power, ScrollText, Server, ShieldAlert, Terminal as TerminalIcon, Users,
+  Power, ScrollText, Server, ShieldAlert, Terminal as TerminalIcon, Users, Wrench, Wifi,
 } from "lucide-react";
 import {
   ActiveSessionRecord,
@@ -17,6 +17,7 @@ import {
   fetchEnvironment,
   fetchPowerCapabilities,
 } from "../lib/api";
+import { AttentionIndicator } from "./AttentionIndicator";
 import type { Tab } from "../lib/router";
 
 interface Props {
@@ -123,7 +124,13 @@ export function OverviewPanel({ sessionToken, info, onGoTo, onAuthFailed }: Prop
           </div>
         )}
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <StatusTile
+            icon={<Wifi className="w-4 h-4" />}
+            title="Reachability"
+            value={reachLabel(info)}
+            tone={info?.reachability?.mode === "tunnel" ? "ok" : info?.reachability?.mode === "lan" ? "ok" : "muted"}
+          />
           <StatusTile
             icon={<BatteryCharging className="w-4 h-4" />}
             title="Battery"
@@ -150,15 +157,44 @@ export function OverviewPanel({ sessionToken, info, onGoTo, onAuthFailed }: Prop
           />
         </section>
 
+        {info?.reachability && (
+          <section className="border border-line bg-panel/50 rounded-md px-4 py-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm">
+              <div className="text-xs font-mono uppercase tracking-wider text-muted shrink-0">Access URLs</div>
+              <div className="min-w-0 flex-1 space-y-1 font-mono text-xs text-muted">
+                {info.reachability.tunnelUrl && (
+                  <div className="truncate"><span className="text-ok">tunnel</span> · {info.reachability.tunnelUrl}</div>
+                )}
+                {info.reachability.lanUrl && (
+                  <div className="truncate"><span className="text-accent">lan</span> · {info.reachability.lanUrl}</div>
+                )}
+                <div className="truncate"><span className="text-muted">local</span> · {info.reachability.localUrl}</div>
+              </div>
+              {!info.reachability.tunnelUrl && (
+                <div className="text-xs text-warn shrink-0">
+                  No public tunnel — use LAN or install cloudflared / Tailscale.
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        <AttentionIndicator
+          sessionToken={sessionToken}
+          onAuthFailed={onAuthFailed}
+          onGoTo={onGoTo}
+        />
+
         <section>
           <div className="mb-2 text-xs font-mono uppercase tracking-wider text-muted">Quick actions</div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <QuickAction icon={<TerminalIcon className="w-4 h-4" />} title="Terminal" detail="Shell session" onClick={() => onGoTo("terminal")} />
-            {perms.includes("file:read") && <QuickAction icon={<FolderOpen className="w-4 h-4" />} title="Files" detail="Browse and edit" onClick={() => onGoTo("files")} />}
-            {perms.includes("git:read") && <QuickAction icon={<GitBranch className="w-4 h-4" />} title="Git" detail="Status and commit" onClick={() => onGoTo("git")} />}
+            {perms.includes("file:read") && <QuickAction icon={<FolderOpen className="w-4 h-4" />} title="Files" detail={perms.includes("file:write") ? "Browse and edit" : "Browse (read-only)"} onClick={() => onGoTo("files")} />}
+            {perms.includes("git:read") && <QuickAction icon={<GitBranch className="w-4 h-4" />} title="Git" detail={perms.includes("git:write") ? "Status and commit" : "Status (read-only)"} onClick={() => onGoTo("git")} />}
             {perms.includes("screen:view") && <QuickAction icon={<Monitor className="w-4 h-4" />} title="Desktop" detail="Screen view" onClick={() => onGoTo("desktop")} />}
-            <QuickAction icon={<Globe className="w-4 h-4" />} title="Proxy" detail="Local apps" onClick={() => onGoTo("proxy")} />
-            <QuickAction icon={<ScrollText className="w-4 h-4" />} title="Audit" detail="Event log" onClick={() => onGoTo("audit")} />
+            {perms.includes("file:write") && <QuickAction icon={<Globe className="w-4 h-4" />} title="Proxy" detail="Local apps" onClick={() => onGoTo("proxy")} />}
+            {(perms.includes("terminal") || perms.includes("file:read")) && <QuickAction icon={<Wrench className="w-4 h-4" />} title="Ops" detail="Setup and host tools" onClick={() => onGoTo("ops")} />}
+            {perms.includes("file:read") && <QuickAction icon={<ScrollText className="w-4 h-4" />} title="Audit" detail="Event log" onClick={() => onGoTo("audit")} />}
           </div>
         </section>
 
@@ -284,6 +320,14 @@ function ModeBadge({ info }: { info: SessionInfoResponse | null }) {
       <ShieldAlert className="w-3.5 h-3.5" /> {mode.autoApprove ? "auto approve" : "keep awake"}
     </span>
   );
+}
+
+function reachLabel(info: SessionInfoResponse | null): string {
+  const mode = info?.reachability?.mode;
+  if (mode === "tunnel") return "tunnel";
+  if (mode === "lan") return "LAN";
+  if (mode === "local") return "local only";
+  return "...";
 }
 
 function batteryLabel(battery: BatteryInfo | null): string {
