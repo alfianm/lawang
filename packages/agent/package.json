@@ -1,6 +1,6 @@
 {
   "name": "lawang",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Local-first remote terminal with QR pairing. Run a single command, scan a QR, get a browser/mobile shell — host approval mandatory.",
   "license": "MIT",
   "homepage": "https://github.com/alfianm/lawang",

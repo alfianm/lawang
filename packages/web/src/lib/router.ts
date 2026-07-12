@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export type Tab = "overview" | "terminal" | "files" | "git" | "desktop" | "chat" | "proxy" | "ops" | "audit";
+export type Tab = "overview" | "terminal" | "files" | "git" | "desktop" | "chat" | "proxy" | "ops" | "agents" | "audit";
 export type Route =
   | { name: "home" }
   | { name: "pair"; token: string | null }
@@ -18,7 +18,7 @@ function parse(): Route {
   }
   if (path === "pair") return { name: "pair", token: params.get("token") };
   if (path === "hosts") return { name: "hosts" };
-  if (path === "overview" || path === "terminal" || path === "files" || path === "git" || path === "desktop" || path === "chat" || path === "proxy" || path === "ops" || path === "audit" || path === "session") {
+  if (path === "overview" || path === "terminal" || path === "files" || path === "git" || path === "desktop" || path === "chat" || path === "proxy" || path === "ops" || path === "agents" || path === "audit" || path === "session") {
     const sessionToken = params.get("token") || pageParams.get("session") || sessionStorage.getItem("lawang:session") || "";
     const tab: Tab =
       path === "overview" || path === "session" ? "overview" :
@@ -28,6 +28,7 @@ function parse(): Route {
       path === "chat" ? "chat" :
       path === "proxy" ? "proxy" :
       path === "ops" ? "ops" :
+      path === "agents" ? "agents" :
       path === "audit" ? "audit" :
       "terminal";
     return { name: "session", tab, sessionToken };

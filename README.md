@@ -10,7 +10,7 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.17-339933.svg)](packages/agent/package.json)
 
 [Quick Start](#quick-start) |
-[What's New](#whats-new-in-110) |
+[What's New](#whats-new-in-120) |
 [Comparison](#lawang-vs-other-remote-solutions) |
 [Features](#key-features) |
 [Setup](#setup-guide) |
@@ -92,6 +92,21 @@ lawang start --unattended-lan-only --pair-pin 123456 --session-ttl 120
 This keeps the host awake, skips the interactive approval prompt for valid
 pairing tokens, limits pairing to LAN/private addresses, requires a PIN, and
 expires sessions after 120 minutes.
+
+---
+
+## What's New in 1.2.0
+
+Lawang 1.2.0 adds **Agent Hub** — remote, agent-focused access without CLI or
+desktop streaming:
+
+- **Agents tab**: start Claude / Codex / Cursor Agent / Aider and similar CLIs
+  in a PTY on the host, then chat and approve from the browser.
+- **Installed presets**: Start modal shows which agent binaries are on PATH.
+- **Attention deep-link**: tapping a needs-you alert jumps to the right agent.
+- **Quick replies**: Approve / Reject / Enter plus common chips (`y`, `allow`, `1`…).
+
+See [CHANGELOG.md](CHANGELOG.md) for the full list.
 
 ---
 

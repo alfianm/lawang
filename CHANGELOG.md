@@ -4,6 +4,18 @@ All notable changes to Lawang are documented here. Format follows [Keep a Change
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-12
+
+### Added
+- **Agent Hub**: dedicated **Agents** tab to start coding agents (Claude, Codex, Cursor Agent, Aider, Gemini, OpenCode, Amp, Goose, Kiro, Antigravity), stream their PTY output, and reply / approve / reject from the browser — without using the raw terminal or remote desktop.
+- Preset detection: Start modal lists CLIs found on the host PATH (`ready`) vs missing.
+- WebSocket `/ws/agents` for live agent logs, with HTTP polling fallback.
+- Attention deep-link: header/Overview alerts open the Agents tab focused on the agent that needs you.
+- Auto-select agents that show a **needs you** badge; quick reply chips (`y`/`n`/`allow`/`1`…).
+
+### Changed
+- Attention API now includes Agent Hub sessions (`source: "agent"`) alongside terminal and Ops process jobs.
+
 ## [1.1.1] - 2026-07-09
 
 ### Changed

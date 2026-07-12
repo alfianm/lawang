@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Terminal as TerminalIcon, FolderOpen, GitBranch, Power, Wifi, WifiOff, Globe, ScrollText, Monitor, ShieldAlert, LayoutDashboard, Wrench, MessageSquare } from "lucide-react";
+import { Terminal as TerminalIcon, FolderOpen, GitBranch, Power, Wifi, WifiOff, Globe, ScrollText, Monitor, ShieldAlert, LayoutDashboard, Wrench, MessageSquare, Bot } from "lucide-react";
 import { TerminalPanel } from "../components/TerminalPanel";
 import { FilesPanel } from "../components/FilesPanel";
 import { GitPanel } from "../components/GitPanel";
@@ -7,6 +7,7 @@ import { DesktopPanel } from "../components/DesktopPanel";
 import { OverviewPanel } from "../components/OverviewPanel";
 import { ProxyPanel } from "../components/ProxyPanel";
 import { OpsPanel } from "../components/OpsPanel";
+import { AgentsPanel } from "../components/AgentsPanel";
 import { AuditPanel } from "../components/AuditPanel";
 import { SessionMeta } from "../components/SessionMeta";
 import { ChatPanel } from "../components/ChatPanel";
@@ -196,6 +197,11 @@ export function SessionPage(props: {
             Proxy
           </TabButton>
         )}
+        {hasPerm(info, "terminal") && (
+          <TabButton active={props.tab === "agents"} onClick={() => props.onTabChange("agents")} icon={<Bot className="w-4 h-4" />}>
+            Agents
+          </TabButton>
+        )}
         {(hasPerm(info, "terminal") || hasPerm(info, "file:read")) && (
           <TabButton active={props.tab === "ops"} onClick={() => props.onTabChange("ops")} icon={<Wrench className="w-4 h-4" />}>
             Ops
@@ -268,6 +274,14 @@ export function SessionPage(props: {
             />
           </div>
         )}
+        {/* Keep agents mounted so selection + scroll state survive tab switches */}
+        <div className={props.tab === "agents" ? "h-full" : "hidden"}>
+          <AgentsPanel
+            sessionToken={props.sessionToken}
+            onAuthFailed={handleEndSession}
+            active={props.tab === "agents"}
+          />
+        </div>
         {props.tab === "chat" && (
           <div className="h-full">
             <ChatPanel

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Activity, BatteryCharging, Clock, FolderOpen, GitBranch, Globe, Monitor,
-  Power, ScrollText, Server, ShieldAlert, Terminal as TerminalIcon, Users, Wrench, Wifi,
+  Power, ScrollText, Server, ShieldAlert, Terminal as TerminalIcon, Users, Wrench, Wifi, Bot,
 } from "lucide-react";
 import {
   ActiveSessionRecord,
@@ -189,6 +189,7 @@ export function OverviewPanel({ sessionToken, info, onGoTo, onAuthFailed }: Prop
           <div className="mb-2 text-xs font-mono uppercase tracking-wider text-muted">Quick actions</div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <QuickAction icon={<TerminalIcon className="w-4 h-4" />} title="Terminal" detail="Shell session" onClick={() => onGoTo("terminal")} />
+            {perms.includes("terminal") && <QuickAction icon={<Bot className="w-4 h-4" />} title="Agents" detail="Chat and approve coding agents" onClick={() => onGoTo("agents")} />}
             {perms.includes("file:read") && <QuickAction icon={<FolderOpen className="w-4 h-4" />} title="Files" detail={perms.includes("file:write") ? "Browse and edit" : "Browse (read-only)"} onClick={() => onGoTo("files")} />}
             {perms.includes("git:read") && <QuickAction icon={<GitBranch className="w-4 h-4" />} title="Git" detail={perms.includes("git:write") ? "Status and commit" : "Status (read-only)"} onClick={() => onGoTo("git")} />}
             {perms.includes("screen:view") && <QuickAction icon={<Monitor className="w-4 h-4" />} title="Desktop" detail="Screen view" onClick={() => onGoTo("desktop")} />}

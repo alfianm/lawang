@@ -346,6 +346,17 @@ export function OpsPanel({ sessionToken, permissions, onAuthFailed }: Props) {
 
         {canTerminal && agents.length > 0 && (
           <Panel title={`AI Agents · ${agents.length} running`} icon={<Bot className="w-4 h-4" />}>
+            <div className="mb-2 text-xs text-muted">
+              Manage chat &amp; approvals in the{" "}
+              <button
+                type="button"
+                className="text-accent hover:underline"
+                onClick={() => { window.location.hash = "/agents"; }}
+              >
+                Agents
+              </button>{" "}
+              tab.
+            </div>
             <div className="space-y-2">
               {agents.map((a) => (
                 <div key={a.jobId} className="flex items-start gap-3 border border-line rounded-md px-3 py-2">

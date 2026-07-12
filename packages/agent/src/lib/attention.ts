@@ -26,7 +26,7 @@ const PATTERNS: Array<{ kind: AttentionKind; label: string; re: RegExp }> = [
   { kind: "prompt", label: "Shell prompt idle", re: /(?:^|\n)[^\n]{0,80}[$#%>]\s*$/m },
 ];
 
-const AGENT_COMMAND_RE = /\b(claude|codex|aider|cursor-agent|gemini|opencode|continue-cli|gpt\s*engineer)\b/i;
+const AGENT_COMMAND_RE = /\b(claude|codex|aider|cursor-agent|cursor|gemini|opencode|continue-cli|gpt\s*engineer|kiro|antigravity|amp|goose|agent)\b/i;
 
 export function detectAttention(text: string, opts?: { preferTailChars?: number }): AttentionHit | null {
   if (!text) return null;

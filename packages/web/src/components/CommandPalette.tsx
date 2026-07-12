@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard,
   Search, Terminal as TerminalIcon, FolderOpen, GitBranch, MessageSquare,
-  RefreshCw, History, Bookmark, Power, Moon, Lock, RotateCw, ArrowRight, Wifi, Monitor, Wrench,
+  RefreshCw, History, Bookmark, Power, Moon, Lock, RotateCw, ArrowRight, Wifi, Monitor, Wrench, Bot,
 } from "lucide-react";
 import type { Tab } from "../lib/router";
 import { fetchSnippets } from "../lib/paletteData";
@@ -278,6 +278,14 @@ export function buildStaticActions(opts: {
       icon: <Wrench className="w-3.5 h-3.5" />,
       keywords: "doctor process share ports service setup",
       run: () => opts.goTo("ops"),
+    },
+    {
+      id: "go:agents",
+      label: "Go to Agents",
+      group: "navigate",
+      icon: <Bot className="w-3.5 h-3.5" />,
+      keywords: "ai agent hub claude codex cursor kiro approve",
+      run: () => opts.goTo("agents"),
     },
     {
       id: "go:audit",

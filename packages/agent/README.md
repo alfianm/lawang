@@ -49,6 +49,14 @@ lawang start --unattended-lan-only --pair-pin 123456 --session-ttl 120
 This keeps the host awake, auto-approves valid pairing tokens, limits pairing to
 LAN/private addresses, requires a PIN, and expires sessions after 120 minutes.
 
+## What's New in 1.2.0
+
+Lawang 1.2.0 adds Agent Hub for remote agent workflows:
+
+- Dedicated **Agents** tab: start coding agents, stream output, approve/reject, and reply from the browser.
+- Preset detection for CLIs installed on the host PATH.
+- Attention alerts deep-link into the agent that needs you.
+
 ## What's New in 1.1.0
 
 Lawang 1.1.0 improves remote-from-phone workflows:
@@ -65,6 +73,13 @@ Lawang 1.1.0 improves remote-from-phone workflows:
 See the root [CHANGELOG.md](../../CHANGELOG.md) for details.
 
 ## Features
+
+### Agent Hub
+
+- Start coding-agent CLIs (Claude Code, Codex, Cursor Agent, Aider, and more) in a host PTY.
+- Stream output in the browser and reply without opening Terminal.
+- Approve / Reject shortcuts when an agent waits for confirmation.
+- Attention badge jumps straight to the agent that needs you.
 
 ### Remote terminal
 

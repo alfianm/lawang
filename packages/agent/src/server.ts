@@ -46,6 +46,8 @@ import {
   COMMON_DEV_PORTS,
 } from "./lib/localProxy";
 import { ProcessJobError, ProcessJobStore } from "./lib/processJobs";
+import { AgentSessionError, AgentSessionStore } from "./lib/agentSessions";
+import { resolveAgentPresets } from "./lib/agentPresets";
 import {
   clipboardCapabilities,
   ClipboardError,
@@ -131,7 +133,7 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
   const writeLimiter = new RateLimiter(60_000, 60);
   const desktopLimiter = new RateLimiter(60_000, 600);
   const processJobs = new ProcessJobStore();
-
+  const agentSessions = new AgentSessionStore();
 
   // Bypass body parsing for raw uploads so req.raw can be piped into a file.
   fastify.addContentTypeParser("application/octet-stream", (_req, _payload, done) => done(null));
@@ -863,12 +865,13 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
 
     const items: Array<{
       id: string;
-      source: "terminal" | "process";
+      source: "terminal" | "process" | "agent";
       kind: string;
       label: string;
       snippet: string;
       sessionId?: string;
       jobId?: string;
+      agentId?: string;
       command?: string | null;
       agent?: string | null;
       status?: string;
@@ -907,10 +910,29 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
       });
     }
 
-    const agents = processJobs.list()
+    for (const agentSession of agentSessions.list()) {
+      if (agentSession.status !== "running") continue;
+      const hit = agentSession.attention;
+      if (!hit || hit.kind === "prompt") continue;
+      items.push({
+        id: `agent:${agentSession.id}:${hit.kind}`,
+        source: "agent",
+        kind: hit.kind,
+        label: hit.label,
+        snippet: hit.snippet,
+        agentId: agentSession.id,
+        command: agentSession.label || agentSession.command,
+        agent: agentSession.agent,
+        status: agentSession.status,
+      });
+    }
+
+    const agentsFromJobs = processJobs.list()
       .filter((j) => j.status === "running" && (looksLikeAgentCommand(j.command) || looksLikeAgentCommand(j.label || "")))
       .map((j) => ({
         jobId: j.id,
+        agentId: null as string | null,
+        source: "process" as const,
         agent: agentLabelFromCommand(j.command) || agentLabelFromCommand(j.label || "") || "agent",
         command: j.label || j.command,
         cwd: j.cwd,
@@ -918,6 +940,22 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
         durationMs: j.durationMs,
         attention: detectAttention(j.log),
       }));
+
+    const agentsFromHub = agentSessions.list()
+      .filter((a) => a.status === "running")
+      .map((a) => ({
+        jobId: a.id,
+        agentId: a.id,
+        source: "agent" as const,
+        agent: a.agent,
+        command: a.label || a.command,
+        cwd: a.cwd,
+        startedAt: a.startedAt,
+        durationMs: a.durationMs,
+        attention: a.attention,
+      }));
+
+    const agents = [...agentsFromHub, ...agentsFromJobs];
 
     return {
       generatedAt: new Date().toISOString(),
@@ -928,6 +966,131 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
         agents: agents.length,
       },
     };
+  });
+
+  // ---- Agent Hub (interactive PTY agent sessions) ----
+
+  const AgentStartBody = z.object({
+    presetId: z.string().trim().min(1).max(64).optional(),
+    command: z.string().trim().min(1).max(2000).optional(),
+    cwd: z.string().trim().min(1).max(1024).optional(),
+    label: z.string().trim().min(1).max(80).optional(),
+  }).refine((v) => Boolean(v.presetId || v.command), { message: "presetId or command required" });
+
+  const AgentReplyBody = z.object({
+    text: z.string().min(1).max(8000),
+  });
+
+  const AgentActionBody = z.object({
+    action: z.enum(["approve", "reject", "enter"]),
+  });
+
+  fastify.get("/api/agents/presets", async (req, reply) => {
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    return { presets: resolveAgentPresets() };
+  });
+
+  fastify.get("/api/agents", async (req, reply) => {
+    if (!fileLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    return { agents: agentSessions.list(), presets: resolveAgentPresets() };
+  });
+
+  fastify.post("/api/agents", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const parsed = AgentStartBody.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      reply.code(400).send({ status: "invalid_request" });
+      return;
+    }
+    try {
+      const agent = agentSessions.start(deps.rootPath, parsed.data);
+      recordEvent("coding_agent_started", {
+        deviceName: session.deviceName,
+        metadata: { sessionId: session.sessionId, agentId: agent.id, agent: agent.agent, command: agent.command, cwd: agent.cwd },
+      });
+      return { agent };
+    } catch (err) {
+      handleAgentSessionError(reply, err);
+    }
+  });
+
+  fastify.get("/api/agents/:agentId", async (req, reply) => {
+    if (!fileLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const agentId = (req.params as { agentId: string }).agentId;
+    const agent = agentSessions.get(agentId);
+    if (!agent) {
+      reply.code(404).send({ status: "not_found" });
+      return;
+    }
+    return { agent };
+  });
+
+  fastify.post("/api/agents/:agentId/reply", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const agentId = (req.params as { agentId: string }).agentId;
+    const parsed = AgentReplyBody.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      reply.code(400).send({ status: "invalid_request" });
+      return;
+    }
+    try {
+      const agent = agentSessions.reply(agentId, { text: parsed.data.text, kind: "reply" });
+      recordEvent("coding_agent_reply", {
+        deviceName: session.deviceName,
+        metadata: { sessionId: session.sessionId, agentId, kind: "reply", chars: parsed.data.text.length },
+      });
+      return { agent };
+    } catch (err) {
+      handleAgentSessionError(reply, err);
+    }
+  });
+
+  fastify.post("/api/agents/:agentId/action", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const agentId = (req.params as { agentId: string }).agentId;
+    const parsed = AgentActionBody.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      reply.code(400).send({ status: "invalid_request" });
+      return;
+    }
+    try {
+      const agent = agentSessions.action(agentId, parsed.data.action);
+      recordEvent("coding_agent_reply", {
+        deviceName: session.deviceName,
+        metadata: { sessionId: session.sessionId, agentId, kind: parsed.data.action },
+      });
+      return { agent };
+    } catch (err) {
+      handleAgentSessionError(reply, err);
+    }
+  });
+
+  fastify.post("/api/agents/:agentId/stop", async (req, reply) => {
+    if (!writeLimiter.hit(req.ip || "unknown")) { reply.code(429).send({ status: "rate_limited" }); return; }
+    const session = authenticate(req, reply, "terminal");
+    if (!session) return;
+    const agentId = (req.params as { agentId: string }).agentId;
+    try {
+      const agent = agentSessions.stop(agentId);
+      recordEvent("coding_agent_stopped", {
+        deviceName: session.deviceName,
+        metadata: { sessionId: session.sessionId, agentId },
+      });
+      return { agent };
+    } catch (err) {
+      handleAgentSessionError(reply, err);
+    }
   });
 
   // ---- Ops: setup doctor, process monitor, share links, service setup ----
@@ -1620,7 +1783,7 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
       proxyUpgrade(deps.proxy, request, socket, head);
       return;
     }
-    if (url.pathname !== "/ws/terminal" && url.pathname !== "/ws/processes") {
+    if (url.pathname !== "/ws/terminal" && url.pathname !== "/ws/processes" && url.pathname !== "/ws/agents") {
       socket.destroy();
       return;
     }
@@ -1635,6 +1798,10 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
         handleProcessSocket(ws, url, deps, processJobs);
         return;
       }
+      if (url.pathname === "/ws/agents") {
+        handleAgentSocket(ws, url, deps, agentSessions);
+        return;
+      }
       handleTerminalSocket(ws, url, deps);
     });
   });
@@ -1642,6 +1809,7 @@ export async function startServer(deps: AgentDeps): Promise<AgentServer> {
   return {
     fastify,
     close: async () => {
+      agentSessions.endAll();
       wss.clients.forEach((c) => c.terminate());
       wss.close();
       await fastify.close();
@@ -1694,6 +1862,17 @@ function handleDesktopError(reply: FastifyReply, err: unknown) {
 
 function handleProcessJobError(reply: FastifyReply, err: unknown) {
   if (err instanceof ProcessJobError) {
+    if (err.code === "outside_root") reply.code(403).send({ status: "forbidden", reason: err.code });
+    else if (err.code === "not_found") reply.code(404).send({ status: "not_found" });
+    else if (err.code === "not_running") reply.code(409).send({ status: "not_running" });
+    else reply.code(400).send({ status: "invalid_request", reason: err.code });
+    return;
+  }
+  reply.code(500).send({ status: "error", message: (err as Error).message });
+}
+
+function handleAgentSessionError(reply: FastifyReply, err: unknown) {
+  if (err instanceof AgentSessionError) {
     if (err.code === "outside_root") reply.code(403).send({ status: "forbidden", reason: err.code });
     else if (err.code === "not_found") reply.code(404).send({ status: "not_found" });
     else if (err.code === "not_running") reply.code(409).send({ status: "not_running" });
@@ -1867,6 +2046,49 @@ function handleProcessSocket(ws: WebSocket, url: URL, deps: AgentDeps, processJo
     if (evt.type === "started") send("processes:started", { job: evt.job });
     else if (evt.type === "log") send("processes:log", { jobId: evt.jobId, chunk: evt.chunk, truncated: evt.truncated });
     else if (evt.type === "updated") send("processes:updated", { job: evt.job });
+    deps.sessions.touch(session.sessionId);
+  });
+
+  const ping = setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+      try { ws.ping(); } catch { /* ignore */ }
+    }
+  }, 25_000);
+  ping.unref?.();
+
+  ws.on("close", () => {
+    clearInterval(ping);
+    unsubscribe();
+  });
+  ws.on("error", () => {
+    clearInterval(ping);
+    unsubscribe();
+  });
+}
+
+function handleAgentSocket(ws: WebSocket, url: URL, deps: AgentDeps, agentSessions: AgentSessionStore) {
+  const token = url.searchParams.get("token") || "";
+  const session = token ? deps.sessions.byTokenRaw(token) : undefined;
+
+  if (!session || !session.permissions.includes("terminal")) {
+    recordEvent("ws_rejected", { metadata: { reason: "invalid_session_token", path: "/ws/agents" } });
+    ws.send(JSON.stringify({ event: "error", payload: { code: "AUTH", message: "Invalid or expired session." } }));
+    ws.close(4401, "unauthorized");
+    return;
+  }
+
+  const send = (event: string, payload: unknown = {}) => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event, payload }));
+  };
+
+  send("agents:snapshot", { agents: agentSessions.list() });
+  deps.sessions.touch(session.sessionId);
+
+  const unsubscribe = agentSessions.subscribe((evt) => {
+    if (evt.type === "started") send("agents:started", { agent: evt.session });
+    else if (evt.type === "log") send("agents:log", { agentId: evt.sessionId, chunk: evt.chunk, truncated: evt.truncated });
+    else if (evt.type === "updated") send("agents:updated", { agent: evt.session });
+    else if (evt.type === "reply") send("agents:reply", { agentId: evt.sessionId, reply: evt.reply });
     deps.sessions.touch(session.sessionId);
   });
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Bot, Bell, Terminal as TerminalIcon, Activity, X } from "lucide-react";
 import { AttentionItem, AttentionResponse, AuthError, AgentCard, fetchAttention } from "../lib/api";
+import { setFocusAgentId } from "../lib/agentFocus";
 import type { Tab } from "../lib/router";
 
 interface Props {
@@ -49,6 +50,11 @@ export function AttentionIndicator({ sessionToken, onAuthFailed, onGoTo, compact
   const agents = data?.agents ?? [];
   const items = data?.items || [];
 
+  function navigate(tab: Tab, agentId?: string | null) {
+    if (tab === "agents" && agentId) setFocusAgentId(agentId);
+    onGoTo?.(tab);
+  }
+
   return (
     <>
       {compact ? (
@@ -71,7 +77,7 @@ export function AttentionIndicator({ sessionToken, onAuthFailed, onGoTo, compact
           <AttentionPanel
             items={items}
             agents={agents}
-            onGoTo={onGoTo}
+            onNavigate={navigate}
             onOpenList={() => setOpen(true)}
           />
         )
@@ -82,9 +88,9 @@ export function AttentionIndicator({ sessionToken, onAuthFailed, onGoTo, compact
           items={items}
           agents={agents}
           onClose={() => setOpen(false)}
-          onGoTo={(tab) => {
+          onNavigate={(tab, agentId) => {
             setOpen(false);
-            onGoTo?.(tab);
+            navigate(tab, agentId);
           }}
         />
       )}
@@ -92,12 +98,25 @@ export function AttentionIndicator({ sessionToken, onAuthFailed, onGoTo, compact
   );
 }
 
+function attentionNav(item: AttentionItem): { tab: Tab; agentId?: string } {
+  if (item.source === "agent") return { tab: "agents", agentId: item.agentId };
+  if (item.source === "process") {
+    if (item.agent) return { tab: "agents", agentId: item.jobId };
+    return { tab: "ops" };
+  }
+  return { tab: "terminal" };
+}
+
+function agentCardNav(a: AgentCard): { tab: Tab; agentId?: string } {
+  return { tab: "agents", agentId: a.agentId || a.jobId };
+}
+
 function AttentionPanel({
-  items, agents, onGoTo, onOpenList,
+  items, agents, onNavigate, onOpenList,
 }: {
   items: AttentionItem[];
   agents: AgentCard[];
-  onGoTo?: (tab: Tab) => void;
+  onNavigate: (tab: Tab, agentId?: string | null) => void;
   onOpenList: () => void;
 }) {
   return (
@@ -110,43 +129,55 @@ function AttentionPanel({
         </button>
       </div>
       <ul className="divide-y divide-line">
-        {items.slice(0, 3).map((item) => (
-          <li key={item.id} className="px-4 py-3">
-            <button
-              className="w-full text-left"
-              onClick={() => onGoTo?.(item.source === "process" ? "ops" : "terminal")}
-            >
-              <div className="flex items-center gap-2 text-sm text-ink">
-                {item.source === "process" ? <Activity className="w-3.5 h-3.5 text-warn" /> : <TerminalIcon className="w-3.5 h-3.5 text-warn" />}
-                <span className="truncate">{item.label}</span>
-              </div>
-              <div className="mt-1 text-xs font-mono text-muted truncate">{item.snippet}</div>
-            </button>
-          </li>
-        ))}
-        {items.length === 0 && agents.slice(0, 2).map((a) => (
-          <li key={a.jobId} className="px-4 py-3">
-            <button className="w-full text-left" onClick={() => onGoTo?.("ops")}>
-              <div className="flex items-center gap-2 text-sm text-ink">
-                <Bot className="w-3.5 h-3.5 text-accent" />
-                <span className="truncate">{a.agent} · {a.command}</span>
-              </div>
-              <div className="mt-1 text-xs font-mono text-muted truncate">{a.cwd} · running</div>
-            </button>
-          </li>
-        ))}
+        {items.slice(0, 3).map((item) => {
+          const nav = attentionNav(item);
+          return (
+            <li key={item.id} className="px-4 py-3">
+              <button
+                className="w-full text-left"
+                onClick={() => onNavigate(nav.tab, nav.agentId)}
+              >
+                <div className="flex items-center gap-2 text-sm text-ink">
+                  {item.source === "terminal" ? (
+                    <TerminalIcon className="w-3.5 h-3.5 text-warn" />
+                  ) : item.source === "agent" ? (
+                    <Bot className="w-3.5 h-3.5 text-warn" />
+                  ) : (
+                    <Activity className="w-3.5 h-3.5 text-warn" />
+                  )}
+                  <span className="truncate">{item.label}</span>
+                </div>
+                <div className="mt-1 text-xs font-mono text-muted truncate">{item.snippet}</div>
+              </button>
+            </li>
+          );
+        })}
+        {items.length === 0 && agents.slice(0, 2).map((a) => {
+          const nav = agentCardNav(a);
+          return (
+            <li key={a.jobId} className="px-4 py-3">
+              <button className="w-full text-left" onClick={() => onNavigate(nav.tab, nav.agentId)}>
+                <div className="flex items-center gap-2 text-sm text-ink">
+                  <Bot className="w-3.5 h-3.5 text-accent" />
+                  <span className="truncate">{a.agent} · {a.command}</span>
+                </div>
+                <div className="mt-1 text-xs font-mono text-muted truncate">{a.cwd} · running</div>
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
 }
 
 function AttentionModal({
-  items, agents, onClose, onGoTo,
+  items, agents, onClose, onNavigate,
 }: {
   items: AttentionItem[];
   agents: AgentCard[];
   onClose: () => void;
-  onGoTo: (tab: Tab) => void;
+  onNavigate: (tab: Tab, agentId?: string | null) => void;
 }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-end md:items-center justify-center p-3" onClick={onClose}>
@@ -166,17 +197,20 @@ function AttentionModal({
             <section>
               <div className="px-4 py-2 text-[11px] uppercase tracking-wider text-muted font-mono bg-bg/40">Alerts</div>
               <ul className="divide-y divide-line">
-                {items.map((item) => (
-                  <li key={item.id}>
-                    <button
-                      className="w-full text-left px-4 py-3 hover:bg-bg/40"
-                      onClick={() => onGoTo(item.source === "process" ? "ops" : "terminal")}
-                    >
-                      <div className="text-sm text-ink">{item.label}</div>
-                      <div className="mt-1 text-xs font-mono text-muted line-clamp-2">{item.snippet}</div>
-                    </button>
-                  </li>
-                ))}
+                {items.map((item) => {
+                  const nav = attentionNav(item);
+                  return (
+                    <li key={item.id}>
+                      <button
+                        className="w-full text-left px-4 py-3 hover:bg-bg/40"
+                        onClick={() => onNavigate(nav.tab, nav.agentId)}
+                      >
+                        <div className="text-sm text-ink">{item.label}</div>
+                        <div className="mt-1 text-xs font-mono text-muted line-clamp-2">{item.snippet}</div>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           )}
@@ -184,20 +218,23 @@ function AttentionModal({
             <section>
               <div className="px-4 py-2 text-[11px] uppercase tracking-wider text-muted font-mono bg-bg/40">Running agents</div>
               <ul className="divide-y divide-line">
-                {agents.map((a) => (
-                  <li key={a.jobId}>
-                    <button className="w-full text-left px-4 py-3 hover:bg-bg/40" onClick={() => onGoTo("ops")}>
-                      <div className="flex items-center gap-2 text-sm text-ink">
-                        <Bot className="w-3.5 h-3.5 text-accent" />
-                        {a.agent}
-                        {a.attention && a.attention.kind !== "prompt" && (
-                          <span className="text-[10px] uppercase tracking-wider text-warn border border-warn/40 rounded px-1">needs you</span>
-                        )}
-                      </div>
-                      <div className="mt-1 text-xs font-mono text-muted truncate">{a.command}</div>
-                    </button>
-                  </li>
-                ))}
+                {agents.map((a) => {
+                  const nav = agentCardNav(a);
+                  return (
+                    <li key={a.jobId}>
+                      <button className="w-full text-left px-4 py-3 hover:bg-bg/40" onClick={() => onNavigate(nav.tab, nav.agentId)}>
+                        <div className="flex items-center gap-2 text-sm text-ink">
+                          <Bot className="w-3.5 h-3.5 text-accent" />
+                          {a.agent}
+                          {a.attention && a.attention.kind !== "prompt" && (
+                            <span className="text-[10px] uppercase tracking-wider text-warn border border-warn/40 rounded px-1">needs you</span>
+                          )}
+                        </div>
+                        <div className="mt-1 text-xs font-mono text-muted truncate">{a.command}</div>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           )}

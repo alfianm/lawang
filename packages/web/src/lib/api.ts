@@ -862,12 +862,13 @@ export function writeClipboard(token: string, text: string) {
 
 export interface AttentionItem {
   id: string;
-  source: "terminal" | "process";
+  source: "terminal" | "process" | "agent";
   kind: string;
   label: string;
   snippet: string;
   sessionId?: string;
   jobId?: string;
+  agentId?: string;
   command?: string | null;
   agent?: string | null;
   status?: string;
@@ -875,6 +876,8 @@ export interface AttentionItem {
 
 export interface AgentCard {
   jobId: string;
+  agentId?: string | null;
+  source?: "process" | "agent";
   agent: string;
   command: string;
   cwd: string;
@@ -892,4 +895,86 @@ export interface AttentionResponse {
 
 export function fetchAttention(token: string) {
   return authedJsonOrThrow<AttentionResponse>(token, "/api/attention");
+}
+
+// ---- Agent Hub ----
+
+export interface AgentPreset {
+  id: string;
+  label: string;
+  command: string;
+  description: string;
+  binaries?: string[];
+  installed?: boolean;
+  resolvedBinary?: string | null;
+}
+
+export interface AgentReply {
+  id: string;
+  at: string;
+  text: string;
+  kind: "reply" | "approve" | "reject" | "enter";
+}
+
+export interface AgentSession {
+  id: string;
+  presetId: string | null;
+  agent: string;
+  label: string;
+  command: string;
+  cwd: string;
+  status: "running" | "exited" | "failed" | "stopped";
+  startedAt: string;
+  endedAt: string | null;
+  exitCode: number | null;
+  durationMs: number;
+  log: string;
+  truncated: boolean;
+  attention: { kind: string; label: string; snippet: string } | null;
+  replies: AgentReply[];
+}
+
+export function listAgents(token: string) {
+  return authedJsonOrThrow<{ agents: AgentSession[]; presets: AgentPreset[] }>(token, "/api/agents");
+}
+
+export function listAgentPresets(token: string) {
+  return authedJsonOrThrow<{ presets: AgentPreset[] }>(token, "/api/agents/presets");
+}
+
+export function startAgent(
+  token: string,
+  body: { presetId?: string; command?: string; cwd?: string; label?: string },
+) {
+  return authedJsonOrThrow<{ agent: AgentSession }>(token, "/api/agents", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function fetchAgent(token: string, agentId: string) {
+  return authedJsonOrThrow<{ agent: AgentSession }>(token, `/api/agents/${encodeURIComponent(agentId)}`);
+}
+
+export function replyToAgent(token: string, agentId: string, text: string) {
+  return authedJsonOrThrow<{ agent: AgentSession }>(token, `/api/agents/${encodeURIComponent(agentId)}/reply`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+}
+
+export function agentAction(token: string, agentId: string, action: "approve" | "reject" | "enter") {
+  return authedJsonOrThrow<{ agent: AgentSession }>(token, `/api/agents/${encodeURIComponent(agentId)}/action`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action }),
+  });
+}
+
+export function stopAgent(token: string, agentId: string) {
+  return authedJsonOrThrow<{ agent: AgentSession }>(token, `/api/agents/${encodeURIComponent(agentId)}/stop`, {
+    method: "POST",
+  });
 }
