@@ -49,9 +49,9 @@ lawang start --unattended-lan-only --pair-pin 123456 --session-ttl 120
 This keeps the host awake, auto-approves valid pairing tokens, limits pairing to
 LAN/private addresses, requires a PIN, and expires sessions after 120 minutes.
 
-## What's New in 1.2.0
+## What's New in 1.3.0
 
-Lawang 1.2.0 adds Agent Hub for remote agent workflows:
+Lawang 1.3.0 adds Agent Hub for remote agent workflows:
 
 - Dedicated **Agents** tab: start coding agents, stream output, approve/reject, and reply from the browser.
 - Preset detection for CLIs installed on the host PATH.

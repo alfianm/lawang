@@ -10,7 +10,7 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.17-339933.svg)](packages/agent/package.json)
 
 [Quick Start](#quick-start) |
-[What's New](#whats-new-in-120) |
+[What's New](#whats-new-in-130) |
 [Comparison](#lawang-vs-other-remote-solutions) |
 [Features](#key-features) |
 [Setup](#setup-guide) |
@@ -95,9 +95,9 @@ expires sessions after 120 minutes.
 
 ---
 
-## What's New in 1.2.0
+## What's New in 1.3.0
 
-Lawang 1.2.0 adds **Agent Hub** — remote, agent-focused access without CLI or
+Lawang 1.3.0 adds **Agent Hub** — remote, agent-focused access without CLI or
 desktop streaming:
 
 - **Agents tab**: start Claude / Codex / Cursor Agent / Aider and similar CLIs

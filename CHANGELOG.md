@@ -4,7 +4,12 @@ All notable changes to Lawang are documented here. Format follows [Keep a Change
 
 ## [Unreleased]
 
-## [1.2.0] - 2026-07-12
+## [1.3.1] - 2026-07-12
+
+### Changed
+- Align root README, package README, and changelog headings with the published `1.3.0` Agent Hub release line.
+
+## [1.3.0] - 2026-07-12
 
 ### Added
 - **Agent Hub**: dedicated **Agents** tab to start coding agents (Claude, Codex, Cursor Agent, Aider, Gemini, OpenCode, Amp, Goose, Kiro, Antigravity), stream their PTY output, and reply / approve / reject from the browser — without using the raw terminal or remote desktop.
