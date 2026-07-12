@@ -1873,10 +1873,11 @@ function handleProcessJobError(reply: FastifyReply, err: unknown) {
 
 function handleAgentSessionError(reply: FastifyReply, err: unknown) {
   if (err instanceof AgentSessionError) {
-    if (err.code === "outside_root") reply.code(403).send({ status: "forbidden", reason: err.code });
-    else if (err.code === "not_found") reply.code(404).send({ status: "not_found" });
-    else if (err.code === "not_running") reply.code(409).send({ status: "not_running" });
-    else reply.code(400).send({ status: "invalid_request", reason: err.code });
+    if (err.code === "outside_root") reply.code(403).send({ status: "forbidden", reason: err.code, message: err.message });
+    else if (err.code === "not_found") reply.code(404).send({ status: "not_found", message: err.message });
+    else if (err.code === "not_running") reply.code(409).send({ status: "not_running", message: err.message });
+    else if (err.code === "preflight_failed") reply.code(422).send({ status: "preflight_failed", message: err.message });
+    else reply.code(400).send({ status: "invalid_request", reason: err.code, message: err.message });
     return;
   }
   reply.code(500).send({ status: "error", message: (err as Error).message });

@@ -532,6 +532,7 @@ export function AgentsPanel({ sessionToken, onAuthFailed, active = true }: Props
           customCommand={customCommand}
           setCustomCommand={setCustomCommand}
           busy={busy}
+          err={err}
           onClose={() => setShowStart(false)}
           onPreset={(p) => void onStartPreset(p)}
           onCustom={() => void onStartCustom()}
@@ -613,7 +614,7 @@ function EmptyState({ onStart, installedCount }: { onStart: () => void; installe
 }
 
 function StartModal({
-  installed, missing, cwd, setCwd, customCommand, setCustomCommand, busy, onClose, onPreset, onCustom,
+  installed, missing, cwd, setCwd, customCommand, setCustomCommand, busy, err, onClose, onPreset, onCustom,
 }: {
   installed: AgentPreset[];
   missing: AgentPreset[];
@@ -622,6 +623,7 @@ function StartModal({
   customCommand: string;
   setCustomCommand: (v: string) => void;
   busy: string | null;
+  err: string | null;
   onClose: () => void;
   onPreset: (p: AgentPreset) => void;
   onCustom: () => void;
@@ -638,6 +640,11 @@ function StartModal({
           <button onClick={onClose} className="p-1 text-muted hover:text-ink"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-4 space-y-4">
+          {err && (
+            <div className="border border-danger/40 bg-danger/5 text-danger rounded-md px-3 py-2 text-xs whitespace-pre-wrap font-mono">
+              {err}
+            </div>
+          )}
           <label className="block space-y-1">
             <span className="text-[11px] uppercase tracking-wider text-muted">Working directory</span>
             <input

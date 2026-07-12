@@ -3,6 +3,11 @@ import { spawn as ptySpawn, IPty } from "node-pty";
 import { resolveInside, SandboxError } from "./sandbox";
 import { agentLabelFromCommand, detectAttention, AttentionHit } from "./attention";
 import { findAgentPreset, resolvePresetCommand } from "./agentPresets";
+import {
+  detectAgentLaunchFailure,
+  formatPreflightMessage,
+  prepareAgentLaunch,
+} from "./agentPreflight";
 
 export type AgentSessionStatus = "running" | "exited" | "failed" | "stopped";
 
@@ -58,7 +63,7 @@ interface AgentSessionInternal {
 export class AgentSessionError extends Error {
   constructor(
     message: string,
-    public code: "command_required" | "outside_root" | "not_found" | "not_running" | "empty_reply",
+    public code: "command_required" | "outside_root" | "not_found" | "not_running" | "empty_reply" | "preflight_failed",
   ) {
     super(message);
   }
@@ -115,6 +120,12 @@ export class AgentSessionStore {
     const agent = agentLabelFromCommand(command) || preset?.id || "agent";
     const label = opts.label?.trim() || preset?.label || agent;
 
+    const preflight = prepareAgentLaunch(command);
+    if (!preflight.ok) {
+      const detail = formatPreflightMessage(preflight).trim() || preflight.warnings.join("; ");
+      throw new AgentSessionError(detail || "agent preflight failed", "preflight_failed");
+    }
+
     let pty: IPty;
     try {
       pty = ptySpawn(shell, args, {
@@ -153,6 +164,7 @@ export class AgentSessionStore {
       replies: [],
     };
 
+    let launchHintInjected = false;
     const append = (chunk: string) => {
       const bytes = Buffer.byteLength(chunk);
       let emitted = chunk;
@@ -174,7 +186,22 @@ export class AgentSessionStore {
       if (emitted) {
         this.emit({ type: "log", sessionId: session.id, chunk: emitted, truncated: session.truncated });
       }
+      if (!launchHintInjected) {
+        const hint = detectAgentLaunchFailure(session.chunks.join(""));
+        if (hint) {
+          launchHintInjected = true;
+          // Append remediation once so the Agents UI shows actionable next steps.
+          const tipBytes = Buffer.byteLength(hint);
+          session.chunks.push(hint);
+          session.logBytes += tipBytes;
+          this.emit({ type: "log", sessionId: session.id, chunk: hint, truncated: session.truncated });
+        }
+      }
     };
+
+    if (preflight.warnings.length || preflight.hints.length) {
+      append(formatPreflightMessage(preflight));
+    }
 
     pty.onData((data) => append(data));
     pty.onExit(({ exitCode }) => {

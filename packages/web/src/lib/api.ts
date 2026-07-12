@@ -535,8 +535,15 @@ async function authedJsonOrThrow<T>(token: string, url: string, init: RequestIni
     throw new Error(`http_409:${(body as any).status || "conflict"}`);
   }
   if (!r.ok) {
-    const body = await r.text();
-    throw new Error(`http_${r.status}:${body.slice(0, 200)}`);
+    const raw = await r.text();
+    try {
+      const body = JSON.parse(raw) as { message?: string; status?: string; reason?: string };
+      if (body.message) throw new Error(body.message);
+      if (body.status || body.reason) throw new Error(`${body.status || "error"}${body.reason ? `:${body.reason}` : ""}`);
+    } catch (e) {
+      if (e instanceof Error && e.message && !e.message.startsWith("http_")) throw e;
+    }
+    throw new Error(`http_${r.status}:${raw.slice(0, 200)}`);
   }
   return (await r.json()) as T;
 }

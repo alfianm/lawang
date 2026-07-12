@@ -4,6 +4,11 @@ All notable changes to Lawang are documented here. Format follows [Keep a Change
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-07-12
+
+### Fixed
+- **Codex / Gatekeeper**: Agent Hub preflight clears macOS quarantine around coding-agent CLIs and detects a missing Codex native binary (common after a false-positive malware warning), with clear reinstall hints in the Agents UI.
+
 ## [1.3.1] - 2026-07-12
 
 ### Changed
